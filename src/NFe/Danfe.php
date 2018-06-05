@@ -596,11 +596,12 @@ class Danfe extends Common
             if ($this->textoAdic != '') {
                 $this->textoAdic .= ". \r\n";
             }
-            $this->textoAdic .= "LOCAL DE ENTREGA : ".$txRetCNPJ.'-'.$txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
-               ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF."\r\n";
+            // $this->textoAdic .= "LOCAL DE ENTREGA : ".$txRetCNPJ.'-'.$txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
+            //    ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF."\r\n";
         }
         //informações adicionais
         $this->textoAdic .= $this->pGeraInformacoesDasNotasReferenciadas();
+
         if (isset($this->infAdic)) {
             $i = 0;
             if ($this->textoAdic != '') {
@@ -652,6 +653,7 @@ class Danfe extends Common
         }
 
         $hdadosadic = round(($numlinhasdados+3) * $this->pdf->FontSize, 0);
+
         if ($hdadosadic < 10) {
             $hdadosadic = 10;
         }
@@ -666,10 +668,27 @@ class Danfe extends Common
         $hfooter = 40;// para rodape
         $hCabecItens = 4;//cabeçalho dos itens
 
-        $hDispo1 = $this->hPrint - 10 - ($hcabecalho +
-            $hdestinatario + ($linhasDup * $hduplicatas) + $himposto + $htransporte +
-            ($linhaISSQN * $hissqn) + $hdadosadic + $hfooter + $hCabecItens +
-            $this->pSizeExtraTextoFatura());
+       
+        $is_new_page = false;
+
+        if ($hdadosadic > $hfooter){
+            
+            $hfooter = 4;
+            
+            $is_new_page = true;
+
+            $hDispo1 = $this->hPrint - 10 - ($hcabecalho +
+                $hdestinatario + ($linhasDup * $hduplicatas) + $himposto + $htransporte +
+                ($linhaISSQN * $hissqn) + $hfooter + $hCabecItens +
+                $this->pSizeExtraTextoFatura());
+        } else {
+
+            $hDispo1 = $this->hPrint - 10 - ($hcabecalho +
+                $hdestinatario + ($linhasDup * $hduplicatas) + $himposto + $htransporte +
+                ($linhaISSQN * $hissqn) + $hdadosadic + $hfooter + $hCabecItens +
+                $this->pSizeExtraTextoFatura());
+        }
+
         if ($this->orientacao == 'P') {
             $hDispo1 -= 23 * $this->qCanhoto;//para canhoto
             $w = $this->wPrint;
@@ -735,16 +754,20 @@ class Danfe extends Common
         } else {
             $y += 4;
         }
-
-        $hdadosadic = 55;
         //coloca os dados adicionais da NFe
-        $y = $this->pDadosAdicionaisDANFE($x, $y, $hdadosadic);
+
+        if (!$is_new_page){  
+            $hdadosadic = 55;
+            $y = $this->pDadosAdicionaisDANFE($x, $y, $hdadosadic);
+        }
+
         //coloca o rodapé da página
         if ($this->orientacao == 'P') {
             $this->pRodape($xInic, $y-1);
         } else {
             $this->pRodape($xInic, $this->hPrint + 1);
         }
+
         //loop para páginas seguintes
         for ($n = 2; $n <= $totPag; $n++) {
             // fixa as margens
@@ -772,6 +795,27 @@ class Danfe extends Common
             if ($n == $totPag && $this->qtdeItensProc < $qtdeItens) {
                 $totPag++;
             }
+        }
+
+        if ($is_new_page){  
+
+            $this->pdf->setMargins($margEsq, $margSup);
+            //adiciona nova página
+            $this->pdf->addPage($this->orientacao, $this->papel);
+            //ajusta espessura das linhas
+            $this->pdf->setLineWidth(0.1);
+            //seta a cor do texto para petro
+            $this->pdf->setTextColor(0, 0, 0);
+
+            $x = $xInic;
+            
+            $y = $yInic;
+            //coloca o cabeçalho na página adicional
+            $y = $this->pCabecalhoDANFE($x, $y, $n, $totPag);
+            
+            $hdadosadic = $this->hPrint - $y;
+
+            $y = $this->pDadosAdicionaisDANFE($x, $y, $hdadosadic);
         }
         //retorna o ID na NFe
         if ($classPdf!==false) {
@@ -1126,7 +1170,7 @@ class Danfe extends Common
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
         $y1 = $y + 20;
         $numNF = str_pad($this->ide->getElementsByTagName('nNF')->item(0)->nodeValue, 9, "0", STR_PAD_LEFT);
-        $numNF = $this->pFormat($numNF, "###.###.###");
+        $numNF = $this->pFormat($numNF, "#########");
         $texto = "Nº. " . $numNF;
         $this->pTextBox($x, $y1, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
         //Série
@@ -2205,20 +2249,22 @@ class Danfe extends Common
         $impostos = '';
 
         if (!empty($ICMS)) {
-            $impostos .= $this->pDescricaoProdutoHelper($ICMS, "pRedBC", " pRedBC=%s%%");
-            $impostos .= $this->pDescricaoProdutoHelper($ICMS, "pMVAST", " IVA=%s%%");
-            $impostos .= $this->pDescricaoProdutoHelper($ICMS, "pICMSST", " pIcmsSt=%s%%");
-            $impostos .= $this->pDescricaoProdutoHelper($ICMS, "vBCST", " BcIcmsSt=%s");
-            $impostos .= $this->pDescricaoProdutoHelper($ICMS, "vICMSST", " vIcmsSt=%s");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMS, "pRedBC", " pRedBC=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMS, "pMVAST", " IVA=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMS, "pICMSST", " pIcmsSt=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMS, "vBCST", " BcIcmsSt=%s");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMS, "vICMSST", " vIcmsSt=%s");
         }
+
         if (!empty($ICMSUFDest)) {
-            $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "pFCPUFDest", " pFCPUFDest=%s%%");
-            $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "pICMSUFDest", " pICMSUFDest=%s%%");
-            $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "pICMSInterPart", " pICMSInterPart=%s%%");
-            $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "vFCPUFDest", " vFCPUFDest=%s");
-            $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "vICMSUFDest", " vICMSUFDest=%s");
-            $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "vICMSUFRemet", " vICMSUFRemet=%s");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "pFCPUFDest", " pFCPUFDest=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "pICMSUFDest", " pICMSUFDest=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "pICMSInterPart", " pICMSInterPart=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "vFCPUFDest", " vFCPUFDest=%s");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "vICMSUFDest", " vICMSUFDest=%s");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "vICMSUFRemet", " vICMSUFRemet=%s");
         }
+
         $infAdProd = ! empty($itemProd->getElementsByTagName('infAdProd')->item(0)->nodeValue) ?
                 substr($this->pAnfavea($itemProd->getElementsByTagName('infAdProd')->item(0)->nodeValue), 0, 500) : '';
         if (! empty($infAdProd)) {
@@ -2244,7 +2290,7 @@ class Danfe extends Common
         //NT2013.006 FCI
         $nFCI = (! empty($itemProd->getElementsByTagName('nFCI')->item(0)->nodeValue)) ?
                 ' FCI:'.$itemProd->getElementsByTagName('nFCI')->item(0)->nodeValue : '';
-        $tmp_ad=$infAdProd . ($this->descProdInfoComplemento ? $medTxt . $impostos . $nFCI : '');
+        $tmp_ad= ($this->descProdInfoComplemento ? $medTxt . $impostos . $nFCI : '');
         $texto = $prod->getElementsByTagName("xProd")->item(0)->nodeValue . (strlen($tmp_ad)!=0?"\n    ".$tmp_ad:'');
         if ($this->descProdQuebraLinha) {
             $texto = str_replace(";", "\n", $texto);
