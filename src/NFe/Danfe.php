@@ -654,9 +654,9 @@ class Danfe extends Common
 
         $hdadosadic = round(($numlinhasdados+3) * $this->pdf->FontSize, 0);
 
-        if ($hdadosadic < 10) {
-            $hdadosadic = 10;
-        }
+        // if ($hdadosadic < 10) {
+        //     $hdadosadic = 10;
+        // }
         
         //altura disponivel para os campos da DANFE
         $hcabecalho = 47;//para cabeçalho
@@ -665,13 +665,13 @@ class Danfe extends Common
         $himposto = 18;// para imposto
         $htransporte = 25;// para transporte
         $hissqn = 11;// para issqn
-        $hfooter = 40;// para rodape
+        $hfooter = $hdadosadic;// para rodape
         $hCabecItens = 4;//cabeçalho dos itens
 
        
         $is_new_page = false;
 
-        if ($hdadosadic > $hfooter){
+        if ($hdadosadic > 40){
             
             $hfooter = 4;
             
@@ -681,9 +681,10 @@ class Danfe extends Common
                 $hdestinatario + ($linhasDup * $hduplicatas) + $himposto + $htransporte +
                 ($linhaISSQN * $hissqn) + $hfooter + $hCabecItens +
                 $this->pSizeExtraTextoFatura());
+        
         } else {
 
-            $hDispo1 = $this->hPrint - 10 - ($hcabecalho +
+            $hDispo1 = $this->hPrint + 5 - ($hcabecalho +
                 $hdestinatario + ($linhasDup * $hduplicatas) + $himposto + $htransporte +
                 ($linhaISSQN * $hissqn) + $hdadosadic + $hfooter + $hCabecItens +
                 $this->pSizeExtraTextoFatura());
@@ -788,7 +789,7 @@ class Danfe extends Common
         //coloca os dados adicionais da NFe
 
         if (!$is_new_page){  
-            $hdadosadic = 55;
+            // $hdadosadic = 55;
             $y = $this->pDadosAdicionaisDANFE($x, $y, $hdadosadic);
         }
 
@@ -1912,7 +1913,7 @@ class Danfe extends Common
 
         if ($this->exibirIcmsInterestadual) {
             $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "V. ICMS UF REMET.", "vICMSUFRemet");
-            $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FCP", "vFCPUFDest");
+            $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FCP", "vFCP");
         }
 
         if ($this->exibirPIS) {
@@ -2321,8 +2322,13 @@ class Danfe extends Common
         //NT2013.006 FCI
         $nFCI = (! empty($itemProd->getElementsByTagName('nFCI')->item(0)->nodeValue)) ?
                 ' FCI:'.$itemProd->getElementsByTagName('nFCI')->item(0)->nodeValue : '';
-        $tmp_ad= ($this->descProdInfoComplemento ? $medTxt . $impostos . $nFCI : '');
+        $tmp_ad = ($this->descProdInfoComplemento ? $medTxt . $impostos . $nFCI : '');
         $texto = $prod->getElementsByTagName("xProd")->item(0)->nodeValue . (strlen($tmp_ad)!=0?"\n    ".$tmp_ad:'');
+
+        // if ( trim($infAdProd) ){
+        //     $texto .= "\n" . $infAdProd;
+        // }
+
         if ($this->descProdQuebraLinha) {
             $texto = str_replace(";", "\n", $texto);
         }
@@ -2507,6 +2513,7 @@ class Danfe extends Common
                 $thisItem = $this->det->item($i);
                 //carrega as tags do item
                 $prod = $thisItem->getElementsByTagName("prod")->item(0);
+                $infAprod =  $thisItem->getElementsByTagName("infAdProd")->item(0);
                 $imposto = $this->det->item($i)->getElementsByTagName("imposto")->item(0);
                 $ICMS = $imposto->getElementsByTagName("ICMS")->item(0);
                 $IPI  = $imposto->getElementsByTagName("IPI")->item(0);
@@ -2529,6 +2536,7 @@ class Danfe extends Common
                 $x=$oldX;
                 //codigo do produto
                 $texto = $prod->getElementsByTagName("cProd")->item(0)->nodeValue;
+
                 $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'T', 'C', 0, '');
                 $x += $w1;
                 //DESCRIÇÃO
@@ -2894,8 +2902,7 @@ class Danfe extends Common
         $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'I');
         $texto = "Impresso em ". date('d/m/Y') . " as " . date('H:i:s');
         $this->pTextBox($x, $y, $w, 0, $texto, $aFont, 'T', 'L', false);
-        $texto = "DanfeNFePHP ver. " . $this->version .  "  Powered by NFePHP (GNU/GPLv3 GNU/LGPLv3) © www.nfephp.org";
-        $this->pTextBox($x, $y, $w, 0, $texto, $aFont, 'T', 'R', false, 'http://www.nfephp.org');
+        
     }
 
     /**
