@@ -1932,7 +1932,7 @@ class Danfe extends Common
         $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "DESCONTO", "vDesc");
         $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "OUTRAS DESPESAS", "vOutro");
         
-        if ($this->ide->finNFe == 4){
+        if ($this->ide->getElementsByTagName('finNFe')->item(0)->nodeValue == 4){
 
             $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR TOTAL IPI", "vIPI");
 
