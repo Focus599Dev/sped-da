@@ -2707,12 +2707,33 @@ class Danfe extends Common
                 }
                 //%IPI
                 $x += $w13;
-                if (isset($IPI)) {
-                    $texto = ! empty($IPI->getElementsByTagName("pIPI")->item(0)->nodeValue) ?
-                            number_format($IPI->getElementsByTagName("pIPI")->item(0)->nodeValue, 2, ",", ".") : '';
+                
+                if ($this->ide->getElementsByTagName('finNFe')->item(0)->nodeValue != 4){
+
+                    if (isset($IPI)) {
+                        $texto = ! empty($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue) ?
+                                number_format($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue, 2, ",", ".") :'';
+                    } else {
+                        $texto = '';
+                    }
+
                 } else {
-                    $texto = '';
+
+                    $IPIDevol  = $thisItem->getElementsByTagName("impostoDevol")->item(0);
+
+                    if ( $IPIDevol ){
+
+                        $texto = ! empty($IPIDevol->getElementsByTagName("vIPIDevol")->item(0)->nodeValue) ?
+                                number_format($IPIDevol->getElementsByTagName("vIPIDevol")->item(0)->nodeValue, 2, ",", ".") :'';
+
+                    } else {
+
+                        $texto = '';
+
+                    }
+
                 }
+                
                 $this->pTextBox($x, $y, $w14, $h, $texto, $aFont, 'T', 'C', 0, '');
                 $y += $h;
                 $i++;
