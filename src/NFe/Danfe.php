@@ -2686,12 +2686,26 @@ class Danfe extends Common
                 }
                 //Valor do IPI
                 $x += $w11;
-                if (isset($IPI)) {
-                    $texto = ! empty($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue) ?
-                            number_format($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue, 2, ",", ".") :'';
+                if ($this->ide->getElementsByTagName('finNFe')->item(0)->nodeValue != 4){
+                    if (isset($IPI)) {
+                        $texto = ! empty($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue) ?
+                                number_format($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue, 2, ",", ".") : '';
+                    } else {
+                        $texto = '';
+                    }
                 } else {
-                    $texto = '';
+
+                    $IPIDevol  = $thisItem->getElementsByTagName("impostoDevol")->item(0);
+                    
+                    if ( $IPIDevol ){
+                        $texto = ! empty($IPIDevol->getElementsByTagName("vIPIDevol")->item(0)->nodeValue) ?
+                                number_format($IPIDevol->getElementsByTagName("vIPIDevol")->item(0)->nodeValue, 2, ",", ".") :'';
+                    } else {
+                        $texto = '';
+                    }
+
                 }
+                
                 $this->pTextBox($x, $y, $w12, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
                 // %ICMS
                 $x += $w12;
@@ -2709,27 +2723,21 @@ class Danfe extends Common
                 $x += $w13;
                 
                 if ($this->ide->getElementsByTagName('finNFe')->item(0)->nodeValue != 4){
-
                     if (isset($IPI)) {
-                        $texto = ! empty($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue) ?
-                                number_format($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue, 2, ",", ".") :'';
+                        $texto = ! empty($IPI->getElementsByTagName("pIPI")->item(0)->nodeValue) ?
+                                number_format($IPI->getElementsByTagName("pIPI")->item(0)->nodeValue, 2, ",", ".") : '';
                     } else {
                         $texto = '';
                     }
-
                 } else {
 
                     $IPIDevol  = $thisItem->getElementsByTagName("impostoDevol")->item(0);
-
+                    
                     if ( $IPIDevol ){
-
-                        $texto = ! empty($IPIDevol->getElementsByTagName("vIPIDevol")->item(0)->nodeValue) ?
-                                number_format($IPIDevol->getElementsByTagName("vIPIDevol")->item(0)->nodeValue, 2, ",", ".") :'';
-
+                        $texto = ! empty($IPIDevol->getElementsByTagName("pDevol")->item(0)->nodeValue) ?
+                                number_format($IPIDevol->getElementsByTagName("pDevol")->item(0)->nodeValue, 2, ",", ".") :'';
                     } else {
-
                         $texto = '';
-
                     }
 
                 }
