@@ -596,8 +596,8 @@ class Danfe extends Common
             if ($this->textoAdic != '') {
                 $this->textoAdic .= ". \r\n";
             }
-            $this->textoAdic .= "LOCAL DE ENTREGA : ".$txRetCNPJ.'-'.$txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
-                ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF."\r\n";
+            // $this->textoAdic .= "LOCAL DE ENTREGA : ".$txRetCNPJ.'-'.$txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
+            //    ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF."\r\n";
         }
         //informações adicionais
         $this->textoAdic .= $this->pGeraInformacoesDasNotasReferenciadas();
@@ -740,7 +740,7 @@ class Danfe extends Common
         while ($i < $this->det->length) {
             $texto = $this->pDescricaoProduto($this->det->item($i));
             $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
-            $hUsado += round(($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.4), 2);
+            $hUsado += round(($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.3), 2);
             if ($hUsado > $hDispo) {
                 $totPag++;
                 $hDispo = $hDispo2;
@@ -883,21 +883,12 @@ class Danfe extends Common
         if ($startPos === false) {
             return $cdata;
         }
-        
-        $endPos = 0;
-
         for ($x=$len; $x>0; $x--) {
-
-           if (substr($cdata, $x, 1) == '>') {
+            if (substr($cdata, $x, 1) == '>') {
                 $endPos = $x;
                 break;
             }
         }
-
-        if ( $endPos == 0){
-           return $cdata;
-        }
-
         if ($startPos > 0) {
             $parte1 = substr($cdata, 0, $startPos);
         } else {
@@ -1254,7 +1245,7 @@ class Danfe extends Common
         $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'');
         $chaveContingencia="";
         if ($this->pNotaDPEC()) {
-            $cabecalhoProtoAutorizacao = 'NÚMERO DE REGISTRO DPEC';
+            $cabecalhoProtoAutorizacao = 'NÚMERO DE REGISTRO EPEC';
         } else {
             $cabecalhoProtoAutorizacao = 'PROTOCOLO DE AUTORIZAÇÃO DE USO';
         }
@@ -1401,7 +1392,7 @@ class Danfe extends Common
             $w = $maxW-(2*$x);
             $this->pdf->SetTextColor(200, 200, 200);
             $texto = "DANFE impresso em contingência -\n".
-                     "DPEC regularmente recebido pela Receita\n".
+                     "EPEC regularmente recebido pela Receita\n".
                      "Federal do Brasil";
             $aFont = array('font'=>$this->fontePadrao, 'size'=>48, 'style'=>'B');
             $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
@@ -2517,9 +2508,6 @@ class Danfe extends Common
         $i = 0;
         $hUsado = $hCabecItens;
         $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
-        
-        $aFontFCI = array('font'=>$this->fontePadrao, 'size'=>5.7, 'style'=>'');
-
         foreach ($this->det as $d) {
             if ($i >= $nInicio) {
                 $thisItem = $this->det->item($i);
@@ -2529,41 +2517,10 @@ class Danfe extends Common
                 $imposto = $this->det->item($i)->getElementsByTagName("imposto")->item(0);
                 $ICMS = $imposto->getElementsByTagName("ICMS")->item(0);
                 $IPI  = $imposto->getElementsByTagName("IPI")->item(0);
-                
                 $textoProduto = $this->pDescricaoProduto($thisItem);
-                
-                $textoExplode = explode(chr(10), $textoProduto);
-
-                if (count($textoExplode) > 1){
-
-                    $textoProduto = $textoExplode[0];
-
-                    unset($textoExplode[0]); 
-
-                    $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
-
-                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);   
-
-                    $textoExplode = implode('\n', $textoExplode);
-
-                    $linhaDescr = $this->pGetNumLines($textoExplode, $w2, $aFontFCI);
-
-                    $h2 = $h;
-
-                    $h = $h + round(($linhaDescr * $this->pdf->FontSize) + ($linhaDescr * 0.5), 2);
-
-                } else {
-
-                    $textoExplode = null;
-
-                    $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
-
-                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);   
-                }
-
-                
+                $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
+                $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);
                 $hUsado += $h;
-
                 if ($pag != $totpag) {
                     if ($hUsado >= $hmax && $i < $totItens) {
                         //ultrapassa a capacidade para uma única página
@@ -2585,15 +2542,8 @@ class Danfe extends Common
                 //DESCRIÇÃO
                 if ($this->orientacao == 'P') {
                     $this->pTextBox($x, $y, $w2, $h, $textoProduto, $aFont, 'T', 'L', 0, '', false);
-                        
-                    if ($textoExplode)
-                        $this->pTextBox($x, $y + $h2, $w2, $h, $textoExplode, $aFontFCI, 'T', 'L', 0, '', false);
-
                 } else {
                     $this->pTextBox($x, $y, $w2, $h, $textoProduto, $aFont, 'T', 'L', 0, '', false);
-
-                    if ($textoExplode)
-                        $this->pTextBox($x, $y + $h2, $w2, $h, $textoExplode, $aFontFCI, 'T', 'L', 0, '', false);
                 }
 
                 $tagMed = $prod->getElementsByTagName("med");
