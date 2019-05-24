@@ -542,63 +542,64 @@ class Danfe extends Common
         }
         $fontProduto = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
         $this->textoAdic = '';
-        if (isset($this->retirada)) {
-            $txRetCNPJ = ! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
-                $this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue :
-                '';
-            $txRetxLgr = ! empty($this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue) ?
-                $this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue :
-                '';
-            $txRetnro = ! empty($this->retirada->getElementsByTagName("nro")->item(0)->nodeValue) ?
-                $this->retirada->getElementsByTagName("nro")->item(0)->nodeValue :
-                's/n';
-            $txRetxCpl = $this->pSimpleGetValue($this->retirada, "xCpl", " - ");
-            $txRetxBairro = ! empty($this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue) ?
-                $this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue :
-                '';
-            $txRetxMun = ! empty($this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue) ?
-                $this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue :
-                '';
-            $txRetUF = ! empty($this->retirada->getElementsByTagName("UF")->item(0)->nodeValue) ?
-                $this->retirada->getElementsByTagName("UF")->item(0)->nodeValue :
-                '';
-            $this->textoAdic .= "LOCAL DE RETIRADA : ".
-                    $txRetCNPJ.
-                    '-' .
-                    $txRetxLgr .
-                    ', ' .
-                    $txRetnro .
-                    ' ' .
-                    $txRetxCpl .
-                    ' - ' .
-                    $txRetxBairro .
-                    ' ' .
-                    $txRetxMun .
-                    ' - ' .
-                    $txRetUF .
-                    "\r\n";
-        }
+        // Comentado devido a NT implementar um cabeçario especifico para retirada e entrega
+        // if (isset($this->retirada)) {
+        //     $txRetCNPJ = ! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue :
+        //         '';
+        //     $txRetxLgr = ! empty($this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue :
+        //         '';
+        //     $txRetnro = ! empty($this->retirada->getElementsByTagName("nro")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("nro")->item(0)->nodeValue :
+        //         's/n';
+        //     $txRetxCpl = $this->pSimpleGetValue($this->retirada, "xCpl", " - ");
+        //     $txRetxBairro = ! empty($this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue :
+        //         '';
+        //     $txRetxMun = ! empty($this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue :
+        //         '';
+        //     $txRetUF = ! empty($this->retirada->getElementsByTagName("UF")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("UF")->item(0)->nodeValue :
+        //         '';
+        //     $this->textoAdic .= "LOCAL DE RETIRADA : ".
+        //             $txRetCNPJ.
+        //             '-' .
+        //             $txRetxLgr .
+        //             ', ' .
+        //             $txRetnro .
+        //             ' ' .
+        //             $txRetxCpl .
+        //             ' - ' .
+        //             $txRetxBairro .
+        //             ' ' .
+        //             $txRetxMun .
+        //             ' - ' .
+        //             $txRetUF .
+        //             "\r\n";
+        // }
         //dados do local de entrega da mercadoria
-        if (isset($this->entrega)) {
-            $txRetCNPJ = ! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
-                $this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue : '';
-            $txRetxLgr = ! empty($this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue) ?
-                $this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue : '';
-            $txRetnro = ! empty($this->entrega->getElementsByTagName("nro")->item(0)->nodeValue) ?
-                $this->entrega->getElementsByTagName("nro")->item(0)->nodeValue : 's/n';
-            $txRetxCpl = $this->pSimpleGetValue($this->entrega, "xCpl", " - ");
-            $txRetxBairro = ! empty($this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue) ?
-                $this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue : '';
-            $txRetxMun = ! empty($this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue) ?
-                $this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue : '';
-            $txRetUF = ! empty($this->entrega->getElementsByTagName("UF")->item(0)->nodeValue) ?
-                $this->entrega->getElementsByTagName("UF")->item(0)->nodeValue : '';
-            if ($this->textoAdic != '') {
-                $this->textoAdic .= ". \r\n";
-            }
-            // $this->textoAdic .= "LOCAL DE ENTREGA : ".$txRetCNPJ.'-'.$txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
-            //    ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF."\r\n";
-        }
+        // if (isset($this->entrega)) {
+        //     $txRetCNPJ = ! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue : '';
+        //     $txRetxLgr = ! empty($this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue : '';
+        //     $txRetnro = ! empty($this->entrega->getElementsByTagName("nro")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("nro")->item(0)->nodeValue : 's/n';
+        //     $txRetxCpl = $this->pSimpleGetValue($this->entrega, "xCpl", " - ");
+        //     $txRetxBairro = ! empty($this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue : '';
+        //     $txRetxMun = ! empty($this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue : '';
+        //     $txRetUF = ! empty($this->entrega->getElementsByTagName("UF")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("UF")->item(0)->nodeValue : '';
+        //     if ($this->textoAdic != '') {
+        //         $this->textoAdic .= ". \r\n";
+        //     }
+        //     // $this->textoAdic .= "LOCAL DE ENTREGA : ".$txRetCNPJ.'-'.$txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
+        //     //    ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF."\r\n";
+        // }
         //informações adicionais
         $this->textoAdic .= $this->pGeraInformacoesDasNotasReferenciadas();
 
@@ -660,6 +661,13 @@ class Danfe extends Common
         
         //altura disponivel para os campos da DANFE
         $hcabecalho = 47;//para cabeçalho
+
+        if (isset($this->retirada)){
+            $hcabecalho += 15;
+        } else if (isset($this->entrega)){
+            $hcabecalho += 15;
+        }
+
         $hdestinatario = 25;//para destinatario
         $hduplicatas = 12;//para cada grupo de 7 duplicatas
         $himposto = 18;// para imposto
@@ -771,6 +779,17 @@ class Danfe extends Common
         $y = $this->pCabecalhoDANFE($x, $y, $pag, $totPag);
         //coloca os dados do destinatário
         $y = $this->pDestinatarioDANFE($x, $y+1);
+
+        if (isset($this->retirada)){
+            
+            $y = $this->pRetiradaDANFE($x, $y+1);
+
+        } else if (isset($this->entrega)){
+
+
+            $y = $this->pEntregaDANFE($x, $y+1);
+
+        }
         //coloca os dados das faturas
         $y = $this->pFaturaDANFE($x, $y+1);
         //coloca os dados dos impostos e totais da NFe
@@ -2518,8 +2537,35 @@ class Danfe extends Common
                 $ICMS = $imposto->getElementsByTagName("ICMS")->item(0);
                 $IPI  = $imposto->getElementsByTagName("IPI")->item(0);
                 $textoProduto = $this->pDescricaoProduto($thisItem);
-                $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
-                $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);
+                
+                $textoExplode = explode(chr(10), $textoProduto);
+
+                if (count($textoExplode) > 1){
+
+                    $textoProduto = $textoExplode[0];
+
+                    unset($textoExplode[0]); 
+
+                    $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
+
+                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);   
+
+                    $textoExplode = implode('\n', $textoExplode);
+
+                    $linhaDescr = $this->pGetNumLines($textoExplode, $w2, $aFontFCI);
+
+                    $h2 = $h;
+
+                    $h = $h + round(($linhaDescr * $this->pdf->FontSize) + ($linhaDescr * 0.5), 2);
+
+                } else {
+
+                    $textoExplode = null;
+
+                    $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
+
+                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);   
+                }
                 $hUsado += $h;
                 if ($pag != $totpag) {
                     if ($hUsado >= $hmax && $i < $totItens) {
@@ -2529,6 +2575,7 @@ class Danfe extends Common
                         break;
                     }
                 }
+                
                 $y_linha=$y+$h;
                 // linha entre itens
                 $this->pdf->DashedHLine($oldX, $y_linha, $w, 0.1, 120);
@@ -3251,4 +3298,484 @@ class Danfe extends Common
             remover os arquivos temporarios pdf
         */
     } //fim função printDANFE
+
+    /**
+     * RetiradaDANFE
+     * Monta o campo com os dados de retirada na DANFE. (retrato e paisagem)
+     *
+     * @name   retiradaDANFE
+     * @param  number $x Posição horizontal canto esquerdo
+     * @param  number $y Posição vertical canto superior
+     * @return number Posição vertical final
+     */
+    private function pRetiradaDANFE ($x = 0, $y = 0){
+
+        $oldX = $x;
+
+        $oldY = $y;
+
+        if ($this->orientacao == 'P') {
+            $maxW = $this->wPrint;
+        } else {
+            $maxW = $this->wPrint - $this->wCanhoto;
+        }
+
+        $w = $maxW;
+
+        $h = 7;
+
+        $texto = "INFORMAÇÕES DO LOCAL DE RETIRADA";
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+
+        $y += 3;
+
+        //NOME / RAZÃO SOCIAL
+        $w = round($maxW*0.61, 0);
+        
+        $w1 = $w;
+
+        $texto = 'NOME / RAZÃO SOCIAL';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+
+        $texto = $this->retirada->getElementsByTagName("xNome")->item(0)->nodeValue;
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+        } else {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 1, '');
+        }
+
+         //CNPJ / CPF
+        $x += $w;
+        
+        $w = round($maxW*0.23, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'CNPJ / CPF';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        //Pegando valor do CPF/CNPJ
+        
+        if (! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue)) {
+            $texto = $this->pFormat(
+                $this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue,
+                "###.###.###/####-##"
+            );
+        } else {
+            $texto = ! empty($this->retirada->getElementsByTagName("CPF")->item(0)->nodeValue) ?
+                    $this->pFormat(
+                        $this->retirada->getElementsByTagName("CPF")->item(0)->nodeValue,
+                        "###.###.###-##"
+                    ) : '';
+        }
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //Inscrição municipal
+        $x += $w;
+
+        $w = $maxW-($w1+$w2);
+
+        $wx = $w;
+
+        $texto = 'INSCRIÇÃO ESTADUAL';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+
+        $texto = $this->retirada->getElementsByTagName("IE")->item(0)->nodeValue;
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        } else {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 1, '');
+        }
+
+        //ENDEREÇO
+        $w = round($maxW*0.47, 0);
+        
+        $w1 = $w;
+        
+        $y += $h;
+        
+        $x = $oldX;
+
+        $texto = 'ENDEREÇO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = $this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue;
+        
+        $texto .= ', ' . $this->retirada->getElementsByTagName("nro")->item(0)->nodeValue;
+        
+        $texto .= $this->pSimpleGetValue($this->retirada, "xCpl", " - ");
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '', true);
+
+        //BAIRRO / DISTRITO
+        $x += $w;
+        
+        $w = round($maxW*0.30, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'BAIRRO / DISTRITO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = $this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue;
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //CEP
+        $x += $w;
+        
+        $w = round($maxW * 0.23, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'CEP';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = ! empty($this->retirada->getElementsByTagName("CEP")->item(0)->nodeValue) ?
+                $this->retirada->getElementsByTagName("CEP")->item(0)->nodeValue : '';
+
+        $texto = $this->pFormat($texto, "#####-###");
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //MUNICÍPIO
+        
+        $w = round($maxW * 0.7350, 0);
+        
+        $y += $h;
+        
+        $x = $oldX;
+
+        $texto = 'MUNICÍPIO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = $this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue;
+        
+        if (strtoupper(trim($texto)) == "EXTERIOR" && $this->retirada->getElementsByTagName("xPais")->length > 0) {
+            $texto .= " - " .  $this->retirada->getElementsByTagName("xPais")->item(0)->nodeValue;
+        }
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+
+        //UF
+        
+        $x += $w;
+        
+        $w = 8;
+        
+        $texto = 'UF';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = $this->retirada->getElementsByTagName("UF")->item(0)->nodeValue;
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //FONE / FAX
+        $x += $w;
+        
+        $w = round($maxW * 0.23, 0);
+        
+        $w3 = $w;
+
+        $texto = 'FONE / FAX';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = ! empty($this->retirada->getElementsByTagName("fone")->item(0)->nodeValue) ?
+                 $this->retirada->getElementsByTagName("fone")->item(0)->nodeValue : '';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        return ($y + $h);
+
+    }
+
+        /**
+     * RetiradaDANFE
+     * Monta o campo com os dados de entrega na DANFE. (retrato e paisagem)
+     *
+     * @name   entregaDANFE
+     * @param  number $x Posição horizontal canto esquerdo
+     * @param  number $y Posição vertical canto superior
+     * @return number Posição vertical final
+     */
+    private function pEntregaDANFE ($x = 0, $y = 0){
+
+        $oldX = $x;
+
+        $oldY = $y;
+
+        if ($this->orientacao == 'P') {
+            $maxW = $this->wPrint;
+        } else {
+            $maxW = $this->wPrint - $this->wCanhoto;
+        }
+
+        $w = $maxW;
+
+        $h = 7;
+
+        $texto = "INFORMAÇÕES DO LOCAL DE ENTREGA";
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+
+        $y += 3;
+
+        //NOME / RAZÃO SOCIAL
+        $w = round($maxW*0.61, 0);
+        
+        $w1 = $w;
+
+        $texto = 'NOME / RAZÃO SOCIAL';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+
+        $texto = $this->entrega->getElementsByTagName("xNome")->item(0)->nodeValue;
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+        } else {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 1, '');
+        }
+
+         //CNPJ / CPF
+        $x += $w;
+        
+        $w = round($maxW*0.23, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'CNPJ / CPF';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        //Pegando valor do CPF/CNPJ
+        
+        if (! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue)) {
+            $texto = $this->pFormat(
+                $this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue,
+                "###.###.###/####-##"
+            );
+        } else {
+            $texto = ! empty($this->entrega->getElementsByTagName("CPF")->item(0)->nodeValue) ?
+                    $this->pFormat(
+                        $this->entrega->getElementsByTagName("CPF")->item(0)->nodeValue,
+                        "###.###.###-##"
+                    ) : '';
+        }
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //Inscrição municipal
+        $x += $w;
+
+        $w = $maxW-($w1+$w2);
+
+        $wx = $w;
+
+        $texto = 'INSCRIÇÃO ESTADUAL';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+
+        $texto = $this->entrega->getElementsByTagName("IE")->item(0)->nodeValue;
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        } else {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 1, '');
+        }
+
+        //ENDEREÇO
+        $w = round($maxW*0.47, 0);
+        
+        $w1 = $w;
+        
+        $y += $h;
+        
+        $x = $oldX;
+
+        $texto = 'ENDEREÇO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = $this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue;
+        
+        $texto .= ', ' . $this->entrega->getElementsByTagName("nro")->item(0)->nodeValue;
+        
+        $texto .= $this->pSimpleGetValue($this->entrega, "xCpl", " - ");
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '', true);
+
+        //BAIRRO / DISTRITO
+        $x += $w;
+        
+        $w = round($maxW*0.30, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'BAIRRO / DISTRITO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = $this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue;
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //CEP
+        $x += $w;
+        
+        $w = round($maxW * 0.23, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'CEP';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = ! empty($this->entrega->getElementsByTagName("CEP")->item(0)->nodeValue) ?
+                $this->entrega->getElementsByTagName("CEP")->item(0)->nodeValue : '';
+
+        $texto = $this->pFormat($texto, "#####-###");
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //MUNICÍPIO
+        
+        $w = round($maxW * 0.7350, 0);
+        
+        $y += $h;
+        
+        $x = $oldX;
+
+        $texto = 'MUNICÍPIO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = $this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue;
+        
+        if (strtoupper(trim($texto)) == "EXTERIOR" && $this->entrega->getElementsByTagName("xPais")->length > 0) {
+            $texto .= " - " .  $this->entrega->getElementsByTagName("xPais")->item(0)->nodeValue;
+        }
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+
+        //UF
+        
+        $x += $w;
+        
+        $w = 8;
+        
+        $texto = 'UF';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = $this->entrega->getElementsByTagName("UF")->item(0)->nodeValue;
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //FONE / FAX
+        $x += $w;
+        
+        $w = round($maxW * 0.23, 0);
+        
+        $w3 = $w;
+
+        $texto = 'FONE / FAX';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = ! empty($this->entrega->getElementsByTagName("fone")->item(0)->nodeValue) ?
+                 $this->entrega->getElementsByTagName("fone")->item(0)->nodeValue : '';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        return ($y + $h);
+
+    }
 }
