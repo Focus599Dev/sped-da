@@ -662,9 +662,11 @@ class Danfe extends Common
         //altura disponivel para os campos da DANFE
         $hcabecalho = 47;//para cabeçalho
 
-        if (isset($this->retirada)){
+        if ( $this->retirada ){
             $hcabecalho += 15;
-        } else if (isset($this->entrega)){
+        } 
+
+        if ( $this->entrega ){
             $hcabecalho += 15;
         }
 
@@ -780,11 +782,13 @@ class Danfe extends Common
         //coloca os dados do destinatário
         $y = $this->pDestinatarioDANFE($x, $y+1);
 
-        if (isset($this->retirada)){
+        if ($this->retirada){
             
             $y = $this->pRetiradaDANFE($x, $y+1);
 
-        } else if (isset($this->entrega)){
+        } 
+
+        if ($this->entrega){
 
 
             $y = $this->pEntregaDANFE($x, $y+1);
@@ -2527,6 +2531,7 @@ class Danfe extends Common
         $i = 0;
         $hUsado = $hCabecItens;
         $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
+        $aFontFCI = array('font'=>$this->fontePadrao, 'size'=>5.7, 'style'=>'');
         foreach ($this->det as $d) {
             if ($i >= $nInicio) {
                 $thisItem = $this->det->item($i);
@@ -2575,7 +2580,7 @@ class Danfe extends Common
                         break;
                     }
                 }
-                
+
                 $y_linha=$y+$h;
                 // linha entre itens
                 $this->pdf->DashedHLine($oldX, $y_linha, $w, 0.1, 120);
@@ -3310,7 +3315,7 @@ class Danfe extends Common
      */
     private function pRetiradaDANFE ($x = 0, $y = 0){
 
-        $oldX = $x;
+         $oldX = $x;
 
         $oldY = $y;
 
@@ -3324,7 +3329,7 @@ class Danfe extends Common
 
         $h = 7;
 
-        $texto = "INFORMAÇÕES DO LOCAL DE RETIRADA";
+        $texto = "INFORMAÇÕES DO LOCAL DE ENTREGA";
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
         
@@ -3343,7 +3348,12 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
 
-        $texto = $this->retirada->getElementsByTagName("xNome")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("xNome")->item(0)->nodeValue)) {
+
+            $texto = $this->retirada->getElementsByTagName("xNome")->item(0)->nodeValue;
+        }
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
 
@@ -3367,17 +3377,23 @@ class Danfe extends Common
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         //Pegando valor do CPF/CNPJ
         
-        if (! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue)) {
-            $texto = $this->pFormat(
-                $this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue,
-                "###.###.###/####-##"
-            );
-        } else {
-            $texto = ! empty($this->retirada->getElementsByTagName("CPF")->item(0)->nodeValue) ?
-                    $this->pFormat(
-                        $this->retirada->getElementsByTagName("CPF")->item(0)->nodeValue,
-                        "###.###.###-##"
-                    ) : '';
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue) || ! empty($this->retirada->getElementsByTagName("CPF")->item(0)->nodeValue)) {
+
+            if (! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue)) {
+                $texto = $this->pFormat(
+                    $this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue,
+                    "###.###.###/####-##"
+                );
+            } else {
+                $texto = ! empty($this->retirada->getElementsByTagName("CPF")->item(0)->nodeValue) ?
+                        $this->pFormat(
+                            $this->retirada->getElementsByTagName("CPF")->item(0)->nodeValue,
+                            "###.###.###-##"
+                        ) : '';
+            }
+
         }
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
@@ -3397,7 +3413,12 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
 
-        $texto = $this->retirada->getElementsByTagName("IE")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("IE")->item(0)->nodeValue)) {
+
+            $texto = $this->retirada->getElementsByTagName("IE")->item(0)->nodeValue;
+        }
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
         
@@ -3422,7 +3443,12 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = $this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue)) {
+
+            $texto = $this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue;
+        }
         
         $texto .= ', ' . $this->retirada->getElementsByTagName("nro")->item(0)->nodeValue;
         
@@ -3445,7 +3471,12 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = $this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue)) {
+
+            $texto = $this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue;
+        }
         
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
         
@@ -3464,8 +3495,13 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = ! empty($this->retirada->getElementsByTagName("CEP")->item(0)->nodeValue) ?
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("CEP")->item(0)->nodeValue)) {
+
+            $texto = ! empty($this->retirada->getElementsByTagName("CEP")->item(0)->nodeValue) ?
                 $this->retirada->getElementsByTagName("CEP")->item(0)->nodeValue : '';
+        }
 
         $texto = $this->pFormat($texto, "#####-###");
 
@@ -3487,10 +3523,15 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = $this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue;
-        
-        if (strtoupper(trim($texto)) == "EXTERIOR" && $this->retirada->getElementsByTagName("xPais")->length > 0) {
-            $texto .= " - " .  $this->retirada->getElementsByTagName("xPais")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue)) {
+ 
+            $texto = $this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue;
+            
+            if (strtoupper(trim($texto)) == "EXTERIOR" && $this->retirada->getElementsByTagName("xPais")->length > 0) {
+                $texto .= " - " .  $this->retirada->getElementsByTagName("xPais")->item(0)->nodeValue;
+            }
         }
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
@@ -3509,7 +3550,12 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = $this->retirada->getElementsByTagName("UF")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("UF")->item(0)->nodeValue)) {
+ 
+            $texto = $this->retirada->getElementsByTagName("UF")->item(0)->nodeValue;
+        }
         
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
         
@@ -3528,11 +3574,16 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = ! empty($this->retirada->getElementsByTagName("fone")->item(0)->nodeValue) ?
-                 $this->retirada->getElementsByTagName("fone")->item(0)->nodeValue : '';
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("fone")->item(0)->nodeValue)) {
+ 
+            $texto = ! empty($this->retirada->getElementsByTagName("fone")->item(0)->nodeValue) ?
+                     $this->retirada->getElementsByTagName("fone")->item(0)->nodeValue : '';
+        }
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
-
+        
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
 
         return ($y + $h);
@@ -3583,7 +3634,12 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
 
-        $texto = $this->entrega->getElementsByTagName("xNome")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("xNome")->item(0)->nodeValue)) {
+
+            $texto = $this->entrega->getElementsByTagName("xNome")->item(0)->nodeValue;
+        }
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
 
@@ -3607,17 +3663,23 @@ class Danfe extends Common
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         //Pegando valor do CPF/CNPJ
         
-        if (! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue)) {
-            $texto = $this->pFormat(
-                $this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue,
-                "###.###.###/####-##"
-            );
-        } else {
-            $texto = ! empty($this->entrega->getElementsByTagName("CPF")->item(0)->nodeValue) ?
-                    $this->pFormat(
-                        $this->entrega->getElementsByTagName("CPF")->item(0)->nodeValue,
-                        "###.###.###-##"
-                    ) : '';
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue) || ! empty($this->entrega->getElementsByTagName("CPF")->item(0)->nodeValue)) {
+
+            if (! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue)) {
+                $texto = $this->pFormat(
+                    $this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue,
+                    "###.###.###/####-##"
+                );
+            } else {
+                $texto = ! empty($this->entrega->getElementsByTagName("CPF")->item(0)->nodeValue) ?
+                        $this->pFormat(
+                            $this->entrega->getElementsByTagName("CPF")->item(0)->nodeValue,
+                            "###.###.###-##"
+                        ) : '';
+            }
+
         }
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
@@ -3637,7 +3699,12 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
 
-        $texto = $this->entrega->getElementsByTagName("IE")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("IE")->item(0)->nodeValue)) {
+
+            $texto = $this->entrega->getElementsByTagName("IE")->item(0)->nodeValue;
+        }
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
         
@@ -3662,7 +3729,12 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = $this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue)) {
+
+            $texto = $this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue;
+        }
         
         $texto .= ', ' . $this->entrega->getElementsByTagName("nro")->item(0)->nodeValue;
         
@@ -3685,7 +3757,12 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = $this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue)) {
+
+            $texto = $this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue;
+        }
         
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
         
@@ -3704,8 +3781,13 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = ! empty($this->entrega->getElementsByTagName("CEP")->item(0)->nodeValue) ?
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("CEP")->item(0)->nodeValue)) {
+
+            $texto = ! empty($this->entrega->getElementsByTagName("CEP")->item(0)->nodeValue) ?
                 $this->entrega->getElementsByTagName("CEP")->item(0)->nodeValue : '';
+        }
 
         $texto = $this->pFormat($texto, "#####-###");
 
@@ -3727,10 +3809,15 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = $this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue;
-        
-        if (strtoupper(trim($texto)) == "EXTERIOR" && $this->entrega->getElementsByTagName("xPais")->length > 0) {
-            $texto .= " - " .  $this->entrega->getElementsByTagName("xPais")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue)) {
+ 
+            $texto = $this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue;
+            
+            if (strtoupper(trim($texto)) == "EXTERIOR" && $this->entrega->getElementsByTagName("xPais")->length > 0) {
+                $texto .= " - " .  $this->entrega->getElementsByTagName("xPais")->item(0)->nodeValue;
+            }
         }
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
@@ -3749,7 +3836,12 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = $this->entrega->getElementsByTagName("UF")->item(0)->nodeValue;
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("UF")->item(0)->nodeValue)) {
+ 
+            $texto = $this->entrega->getElementsByTagName("UF")->item(0)->nodeValue;
+        }
         
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
         
@@ -3768,8 +3860,13 @@ class Danfe extends Common
         
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         
-        $texto = ! empty($this->entrega->getElementsByTagName("fone")->item(0)->nodeValue) ?
-                 $this->entrega->getElementsByTagName("fone")->item(0)->nodeValue : '';
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("fone")->item(0)->nodeValue)) {
+ 
+            $texto = ! empty($this->entrega->getElementsByTagName("fone")->item(0)->nodeValue) ?
+                     $this->entrega->getElementsByTagName("fone")->item(0)->nodeValue : '';
+        }
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
         
