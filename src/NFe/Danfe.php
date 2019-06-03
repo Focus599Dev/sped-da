@@ -906,6 +906,9 @@ class Danfe extends Common
         if ($startPos === false) {
             return $cdata;
         }
+        
+        $endPos = 0;
+
         for ($x=$len; $x>0; $x--) {
             if (substr($cdata, $x, 1) == '>') {
                 $endPos = $x;
