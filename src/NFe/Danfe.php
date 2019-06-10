@@ -670,11 +670,11 @@ class Danfe extends Common
         $hcabecalho = 47;//para cabeçalho
 
         if ( $this->retirada ){
-            $hcabecalho += 15;
+            $hcabecalho += 25;
         } 
 
         if ( $this->entrega ){
-            $hcabecalho += 15;
+            $hcabecalho += 25;
         }
 
         $hdestinatario = 25;//para destinatario
