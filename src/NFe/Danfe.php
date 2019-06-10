@@ -454,13 +454,20 @@ class Danfe extends Common
         $margInf = 2
     ) {
         //se a orientação estiver em branco utilizar o padrão estabelecido na NF
-        if ($orientacao == '') {
-            if ($this->tpImp == '1') {
-                $orientacao = 'P';
-            } else {
-                $orientacao = 'L';
+         if ($orientacao == '') {
+
+            $orientacao = $this->orientacao;
+
+            if ($orientacao == '') {
+
+                if ($this->tpImp == '1') {
+                    $orientacao = 'P';
+                } else {
+                    $orientacao = 'L';
+                }
             }
         }
+        
         $this->orientacao = $orientacao;
         $this->pAdicionaLogoPeloCnpj();
         $this->papel = $papel;
