@@ -2604,8 +2604,10 @@ class Danfe extends Common
                 //DESCRIÇÃO
                 if ($this->orientacao == 'P') {
                     $this->pTextBox($x, $y, $w2, $h, $textoProduto, $aFont, 'T', 'L', 0, '', false);
+                    $this->pTextBox($x, $y + $h2, $w2, $h, $textoExplode, $aFontFCI, 'T', 'L', 0, '', false);
                 } else {
                     $this->pTextBox($x, $y, $w2, $h, $textoProduto, $aFont, 'T', 'L', 0, '', false);
+                    $this->pTextBox($x, $y + $h2, $w2, $h, $textoExplode, $aFontFCI, 'T', 'L', 0, '', false);
                 }
 
                 $tagMed = $prod->getElementsByTagName("med");
