@@ -1,7721 +1,3888 @@
 <?php
 
-namespace NFePHP\NFe;
+namespace NFePHP\DA\NFe;
 
-/**
- * Classe a construção do xml da NFe modelo 55 e modelo 65
- * Esta classe basica está estruturada para montar XML da NFe para o
- * layout versão 3.10, os demais modelos serão derivados deste
- *
- * @category  API
- * @package   NFePHP\NFe\
- * @copyright Copyright (c) 2008-2017
- * @license   http://www.gnu.org/licenses/lgpl.txt LGPLv3+
- * @license   https://opensource.org/licenses/MIT MIT
- * @license   http://www.gnu.org/licenses/gpl.txt GPLv3+
- * @author    Roberto L. Machado <linux.rlm at gmail dot com>
- * @link      http://github.com/nfephp-org/sped-nfe for the canonical source repository
- */
+use InvalidArgumentException;
+use NFePHP\DA\Legacy\Dom;
+use NFePHP\DA\Legacy\Pdf;
+use NFePHP\DA\Legacy\Common;
 
-use NFePHP\Common\Keys;
-use NFePHP\Common\DOMImproved as Dom;
-use NFePHP\Common\Strings;
-use NFePHP\NFe\Common\Gtin;
-use stdClass;
-use RuntimeException;
-use DOMElement;
-use DateTime;
-
-class Make
+class Danfe extends Common
 {
+
+    const FPDF_FONTPATH = 'font/';
+    const SIT_CANCELADA = 1;
+    const SIT_DENEGADA = 2;
+    const SIT_DPEC = 3;
+    const SIT_NONE = 0;
+    
     /**
-     * @var array
-     */
-    public $erros = [];
-    /**
+     * alinhamento padrão do logo (C-Center)
+     *
      * @var string
      */
-    public $chNFe;
+    public $logoAlign = 'C';
     /**
-     * @var string
+     * Posição
+     * @var float
      */
-    public $xml;
+    public $yDados = 0;
     /**
-     * @var string
-     */
-    protected $version;
-    /**
+     * Situação
      * @var integer
      */
-    protected $mod = 55;
+    public $situacaoExterna = 0;
     /**
-     * @var \NFePHP\Common\DOMImproved
+     * Numero DPEC
+     *
+     * @var string
      */
-    public $dom;
+    public $numero_registro_dpec = '';
     /**
+     * quantidade de canhotos a serem montados, geralmente 1 ou 2
+     *
      * @var integer
      */
-    protected $tpAmb = 2;
+    public $qCanhoto = 1;
+
+    //###########################################################
+    // INÍCIO ATRIBUTOS DE PARÂMETROS DE EXIBIÇÃO
+    //###########################################################
+    
     /**
-     * @var DOMElement
+     * Parâmetro para exibir ou ocultar os valores do PIS/COFINS.
+     * @var boolean
      */
-    protected $NFe;
+    public $exibirPIS = true;
     /**
-     * @var DOMElement
+     * Parâmetro para exibir ou ocultar os valores do ICMS Interestadual e Valor Total dos Impostos.
+     * @var boolean
+     */
+    public $exibirIcmsInterestadual = true;
+    /**
+     * Parâmetro para exibir ou ocultar o texto sobre valor aproximado dos tributos.
+     * @var boolean
+     */
+    public $exibirValorTributos = true;
+    /**
+     * Parâmetro para exibir ou ocultar o texto adicional sobre a forma de pagamento
+     * e as informações de fatura/duplicata.
+     * @var boolean
+     */
+    public $exibirTextoFatura = false;
+    /**
+     * Parâmetro do controle se deve concatenar automaticamente informações complementares
+     * na descrição do produto, como por exemplo, informações sobre impostos.
+     * @var boolean
+     */
+    public $descProdInfoComplemento = true;
+    /**
+     * Parâmetro do controle se deve gerar quebras de linha com "\n" a partir de ";" na descrição do produto.
+     * @var boolean
+     */
+    public $descProdQuebraLinha = true;
+    
+    //###########################################################
+    //PROPRIEDADES DA CLASSE
+    //###########################################################
+    
+    /**
+     * objeto fpdf()
+     * @var object
+     */
+    protected $pdf;
+    /**
+     * XML NFe
+     * @var string
+     */
+    protected $xml;
+    /**
+     * path para logomarca em jpg
+     * @var string
+     */
+    protected $logomarca = '';
+    /**
+     * mesagens de erro
+     * @var string
+     */
+    protected $errMsg = '';
+    /**
+     * status de erro true um erro ocorreu false sem erros
+     * @var boolean
+     */
+    protected $errStatus = false;
+    /**
+     * orientação da DANFE
+     * P-Retrato ou L-Paisagem
+     * @var string
+     */
+    protected $orientacao = 'P';
+    /**
+     * formato do papel
+     * @var string
+     */
+    protected $papel = 'A4';
+    /**
+     * destino do arquivo pdf
+     * I-borwser, S-retorna o arquivo, D-força download, F-salva em arquivo local
+     * @var string
+     */
+    protected $destino = 'I';
+    /**
+     * diretorio para salvar o pdf com a opção de destino = F
+     * @var string
+     */
+    protected $pdfDir = '';
+    /**
+     * Nome da Fonte para gerar o DANFE
+     * @var string
+     */
+    protected $fontePadrao = 'Times';
+    /**
+     * versão
+     * @var string
+     */
+    protected $version = '2.2.8';
+    /**
+     * Texto
+     * @var string
+     */
+    protected $textoAdic = '';
+    /**
+     * Largura
+     * @var float
+     */
+    protected $wAdic = 0;
+    /**
+     * largura imprimivel, em milímetros
+     * @var float
+     */
+    protected $wPrint;
+    /**
+     * Comprimento (altura) imprimivel, em milímetros
+     * @var float
+     */
+    protected $hPrint;
+    /**
+     * largura do canhoto (25mm) apenas para a formatação paisagem
+     * @var float
+     */
+    protected $wCanhoto = 25;
+    /**
+     * Formato chave
+     * @var string
+     */
+    protected $formatoChave = "#### #### #### #### #### #### #### #### #### #### ####";
+    /**
+     * quantidade de itens já processados na montagem do DANFE
+     * @var integer
+     */
+    protected $qtdeItensProc;
+
+    /**
+     * Document
+     * @var DOMDocument
+     */
+    protected $dom;
+    /**
+     * Node
+     * @var DOMNode
      */
     protected $infNFe;
     /**
-     * @var DOMElement
+     * Node
+     * @var DOMNode
      */
     protected $ide;
     /**
-     * @var DOMElement
-     */
-    protected $emit;
-    /**
-     * @var DOMElement
-     */
-    protected $enderEmit;
-    /**
-     * @var DOMElement
-     */
-    protected $dest;
-    /**
-     * @var DOMElement
-     */
-    protected $enderDest;
-    /**
-     * @var DOMElement
-     */
-    protected $retirada;
-    /**
-     * @var DOMElement
+     * Node
+     * @var DOMNode
      */
     protected $entrega;
     /**
-     * @var DOMElement
+     * Node
+     * @var DOMNode
      */
-    protected $total;
+    protected $retirada;
     /**
-     * @var DOMElement
+     * Node
+     * @var DOMNode
+     */
+    protected $emit;
+    /**
+     * Node
+     * @var DOMNode
+     */
+    protected $dest;
+    /**
+     * Node
+     * @var DOMNode
+     */
+    protected $enderEmit;
+    /**
+     * Node
+     * @var DOMNode
+     */
+    protected $enderDest;
+    /**
+     * Node
+     * @var DOMNode
+     */
+    protected $det;
+    /**
+     * Node
+     * @var DOMNode
      */
     protected $cobr;
     /**
-     * @var DOMElement
+     * Node
+     * @var DOMNode
+     */
+    protected $dup;
+    /**
+     * Node
+     * @var DOMNode
+     */
+    protected $ICMSTot;
+    /**
+     * Node
+     * @var DOMNode
+     */
+    protected $ISSQNtot;
+    /**
+     * Node
+     * @var DOMNode
      */
     protected $transp;
     /**
-     * @var DOMElement
+     * Node
+     * @var DOMNode
+     */
+    protected $transporta;
+    /**
+     * Node
+     * @var DOMNode
+     */
+    protected $veicTransp;
+    /**
+     * Node reboque
+     * @var DOMNode
+     */
+    protected $reboque;
+    /**
+     * Node infAdic
+     * @var DOMNode
      */
     protected $infAdic;
     /**
-     * @var DOMElement
+     * Tipo de emissão
+     * @var integer
      */
-    protected $exporta;
+    protected $tpEmis;
     /**
-     * @var DOMElement
+     * Node infProt
+     * @var DOMNode
+     */
+    protected $infProt;
+    /**
+     * 1-Retrato/ 2-Paisagem
+     * @var integer
+     */
+    protected $tpImp;
+    /**
+     * Node compra
+     * @var DOMNode
      */
     protected $compra;
     /**
-     * @var DOMElement
+     * ativa ou desativa o modo de debug
+     * @var integer
      */
-    protected $cana;
-    /**
-     * @var DOMElement
-     */
-    protected $infNFeSupl;
-    /**
-     * @var array of DOMElements
-     */
-    protected $aNFref = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aDup = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aPag = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aDetPag = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aReboque = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aVol = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aAutXML = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aDet = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aProd = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aRastro = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aNVE = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aCest = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aRECOPI = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aDetExport = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aDI = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aAdi = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aVeicProd = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aMed = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aArma = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aComb = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aEncerrante = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aImposto = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aICMS = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aICMSUFDest = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aIPI = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aII = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aISSQN = [];
-    /**
-     * @var array
-     */
-    protected $aPIS = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aPISST = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aCOFINS = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aCOFINSST = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aImpostoDevol = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aInfAdProd = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aObsCont = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aObsFisco = [];
-    /**
-     * @var array of DOMElements
-     */
-    protected $aProcRef = [];
-    /**
-     * @var stdClass
-     */
-    protected $stdTot;
-
-    protected $detPag;
+    protected $debugMode=2;
 
     /**
-     * @var DOMElement
+     * __construct
+     *
+     * @name  __construct
+     * @param string  $docXML      Conteúdo XML da NF-e (com ou sem a tag nfeProc)
+     * @param string  $sOrientacao (Opcional) Orientação da impressão P-retrato L-Paisagem
+     * @param string  $sPapel      Tamanho do papel (Ex. A4)
+     * @param string  $sPathLogo   Caminho para o arquivo do logo
+     * @param string  $sDestino    Estabelece a direção do envio do documento PDF I-browser D-browser com download S-
+     * @param string  $sDirPDF     Caminho para o diretorio de armazenamento dos arquivos PDF
+     * @param string  $fonteDANFE  Nome da fonte alternativa do DAnfe
+     * @param integer $mododebug   0-Não 1-Sim e 2-nada (2 default)
      */
-    protected $infRespTec;
-
-    /**
-     * @var string
-    */
-    protected $csrt;
-
-    /**
-     * Função construtora cria um objeto DOMDocument
-     * que será carregado com o documento fiscal
-     */
-    public function __construct()
-    {
-        $this->dom = new Dom('1.0', 'UTF-8');
-        $this->dom->preserveWhiteSpace = false;
-        $this->dom->formatOutput = false;
-        //elemento totalizador
-        $this->stdTot = new \stdClass();
-        $this->stdTot->vBC = 0;
-        $this->stdTot->vICMS = 0;
-        $this->stdTot->vICMSDeson = 0;
-        $this->stdTot->vFCP = 0;
-        $this->stdTot->vFCPUFDest = 0;
-        $this->stdTot->vICMSUFDest = 0;
-        $this->stdTot->vICMSUFRemet = 0;
-        $this->stdTot->vBCST = 0;
-        $this->stdTot->vST = 0;
-        $this->stdTot->vFCPST = 0;
-        $this->stdTot->vFCPSTRet = 0;
-        $this->stdTot->vProd = 0;
-        $this->stdTot->vFrete = 0;
-        $this->stdTot->vSeg = 0;
-        $this->stdTot->vDesc = 0;
-        $this->stdTot->vII = 0;
-        $this->stdTot->vIPI = 0;
-        $this->stdTot->vIPIDevol = 0;
-        $this->stdTot->vPIS = 0;
-        $this->stdTot->vCOFINS = 0;
-        $this->stdTot->vOutro = 0;
-        $this->stdTot->vNF = 0;
-        $this->stdTot->vTotTrib = 0;
+    public function __construct(
+        $docXML = '',
+        $sOrientacao = '',
+        $sPapel = '',
+        $sPathLogo = '',
+        $sDestino = 'I',
+        $sDirPDF = '',
+        $fonteDANFE = '',
+        $mododebug = 2
+    ) {
+        //set_time_limit(1800);
+        if (is_numeric($mododebug)) {
+            $this->debugMode = $mododebug;
+        }
+        if ($mododebug == 1) {
+            //ativar modo debug
+            error_reporting(E_ALL);
+            ini_set('display_errors', 'On');
+        }
+        if ($mododebug == 0) {
+            //desativar modo debug
+            error_reporting(0);
+            ini_set('display_errors', 'Off');
+        }
+        $this->orientacao   = $sOrientacao;
+        $this->papel        = $sPapel;
+        $this->pdf          = '';
+        $this->xml          = $docXML;
+        $this->logomarca    = $sPathLogo;
+        $this->destino      = $sDestino;
+        $this->pdfDir       = $sDirPDF;
+        // verifica se foi passa a fonte a ser usada
+        if (empty($fonteDANFE)) {
+            $this->fontePadrao = 'Times';
+        } else {
+            $this->fontePadrao = $fonteDANFE;
+        }
+        //se for passado o xml
+        if (! empty($this->xml)) {
+            $this->dom = new Dom();
+            $this->dom->loadXML($this->xml);
+            $this->nfeProc    = $this->dom->getElementsByTagName("nfeProc")->item(0);
+            $this->infNFe     = $this->dom->getElementsByTagName("infNFe")->item(0);
+            $this->ide        = $this->dom->getElementsByTagName("ide")->item(0);
+            $this->entrega    = $this->dom->getElementsByTagName("entrega")->item(0);
+            $this->retirada   = $this->dom->getElementsByTagName("retirada")->item(0);
+            $this->emit       = $this->dom->getElementsByTagName("emit")->item(0);
+            $this->dest       = $this->dom->getElementsByTagName("dest")->item(0);
+            $this->enderEmit  = $this->dom->getElementsByTagName("enderEmit")->item(0);
+            $this->enderDest  = $this->dom->getElementsByTagName("enderDest")->item(0);
+            $this->det        = $this->dom->getElementsByTagName("det");
+            $this->cobr       = $this->dom->getElementsByTagName("cobr")->item(0);
+            $this->dup        = $this->dom->getElementsByTagName('dup');
+            $this->ICMSTot    = $this->dom->getElementsByTagName("ICMSTot")->item(0);
+            $this->ISSQNtot   = $this->dom->getElementsByTagName("ISSQNtot")->item(0);
+            $this->transp     = $this->dom->getElementsByTagName("transp")->item(0);
+            $this->transporta = $this->dom->getElementsByTagName("transporta")->item(0);
+            $this->veicTransp = $this->dom->getElementsByTagName("veicTransp")->item(0);
+            $this->reboque    = $this->dom->getElementsByTagName("reboque")->item(0);
+            $this->infAdic    = $this->dom->getElementsByTagName("infAdic")->item(0);
+            $this->compra     = $this->dom->getElementsByTagName("compra")->item(0);
+            $this->tpEmis     = $this->ide->getElementsByTagName("tpEmis")->item(0)->nodeValue;
+            $this->tpImp      = $this->ide->getElementsByTagName("tpImp")->item(0)->nodeValue;
+            $this->infProt    = $this->dom->getElementsByTagName("infProt")->item(0);
+            //valida se o XML é uma NF-e modelo 55, pois não pode ser 65 (NFC-e)
+            if ($this->pSimpleGetValue($this->ide, "mod") != '55') {
+                throw new InvalidArgumentException("O xml do DANFE deve ser uma NF-e modelo 55");
+            }
+        }
     }
 
     /**
-     * Returns xml string and assembly it is necessary
+     * monta
+     *
+     * @name   monta
+     * @param  string $orientacao
+     * @param  string $papel
+     * @param  string $logoAlign
      * @return string
      */
-    public function getXML()
+    public function monta(
+        $orientacao = '',
+        $papel = 'A4',
+        $logoAlign = 'C',
+        $situacaoExterna = self::SIT_NONE,
+        $classPdf = false,
+        $dpecNumReg = '',
+        $margSup = 2,
+        $margEsq = 2,
+        $margInf = 2
+    ) {
+        return $this->montaDANFE(
+            $orientacao,
+            $papel,
+            $logoAlign,
+            $situacaoExterna,
+            $classPdf,
+            $dpecNumReg,
+            $margSup,
+            $margEsq,
+            $margInf
+        );
+    }
+
+    /**
+     * printDocument
+     *
+     * @param  string $nome
+     * @param  string $destino
+     * @param  string $printer
+     * @return object pdf
+     */
+    public function printDocument($nome = '', $destino = 'I', $printer = '')
     {
-        if (empty($this->xml)) {
-            $this->montaNFe();
+        return $this->printDANFE($nome, $destino, $printer);
+    }
+
+    /**
+     * montaDANFE
+     * Monta a DANFE conforme as informações fornecidas para a classe durante sua
+     * construção. Constroi DANFEs com até 3 páginas podendo conter até 56 itens.
+     * A definição de margens e posições iniciais para a impressão são estabelecidas
+     * pelo conteúdo da funçao e podem ser modificados.
+     *
+     * @param  string $orientacao (Opcional) Estabelece a orientação da impressão
+     *  (ex. P-retrato), se nada for fornecido será usado o padrão da NFe
+     * @param  string $papel      (Opcional) Estabelece o tamanho do papel (ex. A4)
+     * @return string O ID da NFe numero de 44 digitos extraido do arquivo XML
+     */
+    public function montaDANFE(
+        $orientacao = '',
+        $papel = 'A4',
+        $logoAlign = 'C',
+        $situacaoExterna = self::SIT_NONE,
+        $classPdf = false,
+        $depecNumReg = '',
+        $margSup = 2,
+        $margEsq = 2,
+        $margInf = 2
+    ) {
+        //se a orientação estiver em branco utilizar o padrão estabelecido na NF
+        if ($orientacao == '') {
+
+            $orientacao = $this->orientacao;
+
+            if ($orientacao == '') {
+
+                if ($this->tpImp == '1') {
+                    $orientacao = 'P';
+                } else {
+                    $orientacao = 'L';
+                }
+            }
         }
 
-        return $this->xml;
-    }
+        $this->orientacao = $orientacao;
+        $this->pAdicionaLogoPeloCnpj();
+        $this->papel = $papel;
+        $this->logoAlign = $logoAlign;
+        $this->situacao_externa = $situacaoExterna;
+        $this->numero_registro_dpec = $depecNumReg;
+        //instancia a classe pdf
+        if ($classPdf) {
+            $this->pdf = $classPdf;
+        } else {
+            $this->pdf = new Pdf($this->orientacao, 'mm', $this->papel);
+        }
+        //margens do PDF, em milímetros. Obs.: a margem direita é sempre igual à
+        //margem esquerda. A margem inferior *não* existe na FPDF, é definida aqui
+        //apenas para controle se necessário ser maior do que a margem superior
+        // posição inicial do conteúdo, a partir do canto superior esquerdo da página
+        $xInic = $margEsq;
+        $yInic = $margSup;
+        if ($this->orientacao == 'P') {
+            if ($papel == 'A4') {
+                $maxW = 210;
+                $maxH = 297;
+            }
+        } else {
+            if ($papel == 'A4') {
+                $maxH = 210;
+                $maxW = 297;
+                //se paisagem multiplica a largura do canhoto pela quantidade de canhotos
+                $this->wCanhoto *= $this->qCanhoto;
+            }
+        }
+        //total inicial de paginas
+        $totPag = 1;
+        //largura imprimivel em mm: largura da folha menos as margens esq/direita
+        $this->wPrint = $maxW-($margEsq*2);
+        //comprimento (altura) imprimivel em mm: altura da folha menos as margens
+        //superior e inferior
+        $this->hPrint = $maxH-$margSup-$margInf;
+        // estabelece contagem de paginas
+        $this->pdf->aliasNbPages();
+        // fixa as margens
+        $this->pdf->setMargins($margEsq, $margSup);
+        $this->pdf->setDrawColor(0, 0, 0);
+        $this->pdf->setFillColor(255, 255, 255);
+        // inicia o documento
+        $this->pdf->open();
+        // adiciona a primeira página
+        $this->pdf->addPage($this->orientacao, $this->papel);
+        $this->pdf->setLineWidth(0.1);
+        $this->pdf->setTextColor(0, 0, 0);
+
+        //##################################################################
+        // CALCULO DO NUMERO DE PAGINAS A SEREM IMPRESSAS
+        //##################################################################
+        //Verificando quantas linhas serão usadas para impressão das duplicatas
+        $linhasDup = 0;
+        if (($this->dup->length > 0) && ($this->dup->length <= 7)) {
+            $linhasDup = 1;
+        } elseif (($this->dup->length > 7) && ($this->dup->length <= 14)) {
+            $linhasDup = 2;
+        } elseif (($this->dup->length > 14) && ($this->dup->length <= 21)) {
+            $linhasDup = 3;
+        } elseif ($this->dup->length > 21) {
+            // chinnonsantos 11/05/2016: Limite máximo de impressão de duplicatas na NFe,
+            // só vai ser exibito as 21 primeiras duplicatas (parcelas de pagamento),
+            // se não oculpa espaço d+, cada linha comporta até 7 duplicatas.
+            $linhasDup = 3;
+        }
+        //verifica se será impressa a linha dos serviços ISSQN
+        $linhaISSQN = 0;
+        if ((isset($this->ISSQNtot)) && ($this->pSimpleGetValue($this->ISSQNtot, 'vServ') > 0)) {
+            $linhaISSQN = 1;
+        }
+        //calcular a altura necessária para os dados adicionais
+        if ($this->orientacao == 'P') {
+            $this->wAdic = round($this->wPrint*0.66, 0);
+        } else {
+            $this->wAdic = round(($this->wPrint-$this->wCanhoto)*0.5, 0);
+        }
+        $fontProduto = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
+        $this->textoAdic = '';
+        // Comentado devido a NT implementar um cabeçario especifico para retirada e entrega
+        // if (isset($this->retirada)) {
+        //     $txRetCNPJ = ! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue :
+        //         '';
+        //     $txRetxLgr = ! empty($this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue :
+        //         '';
+        //     $txRetnro = ! empty($this->retirada->getElementsByTagName("nro")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("nro")->item(0)->nodeValue :
+        //         's/n';
+        //     $txRetxCpl = $this->pSimpleGetValue($this->retirada, "xCpl", " - ");
+        //     $txRetxBairro = ! empty($this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue :
+        //         '';
+        //     $txRetxMun = ! empty($this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue :
+        //         '';
+        //     $txRetUF = ! empty($this->retirada->getElementsByTagName("UF")->item(0)->nodeValue) ?
+        //         $this->retirada->getElementsByTagName("UF")->item(0)->nodeValue :
+        //         '';
+        //     $this->textoAdic .= "LOCAL DE RETIRADA : ".
+        //             $txRetCNPJ.
+        //             '-' .
+        //             $txRetxLgr .
+        //             ', ' .
+        //             $txRetnro .
+        //             ' ' .
+        //             $txRetxCpl .
+        //             ' - ' .
+        //             $txRetxBairro .
+        //             ' ' .
+        //             $txRetxMun .
+        //             ' - ' .
+        //             $txRetUF .
+        //             "\r\n";
+        // }
+        //dados do local de entrega da mercadoria
+        // if (isset($this->entrega)) {
+        //     $txRetCNPJ = ! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue : '';
+        //     $txRetxLgr = ! empty($this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue : '';
+        //     $txRetnro = ! empty($this->entrega->getElementsByTagName("nro")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("nro")->item(0)->nodeValue : 's/n';
+        //     $txRetxCpl = $this->pSimpleGetValue($this->entrega, "xCpl", " - ");
+        //     $txRetxBairro = ! empty($this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue : '';
+        //     $txRetxMun = ! empty($this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue : '';
+        //     $txRetUF = ! empty($this->entrega->getElementsByTagName("UF")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("UF")->item(0)->nodeValue : '';
+        //     if ($this->textoAdic != '') {
+        //         $this->textoAdic .= ". \r\n";
+        //     }
+        //     // $this->textoAdic .= "LOCAL DE ENTREGA : ".$txRetCNPJ.'-'.$txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
+        //     //    ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF."\r\n";
+        // }
+        //informações adicionais
+        $this->textoAdic .= $this->pGeraInformacoesDasNotasReferenciadas();
+
+        if (isset($this->infAdic)) {
+            $i = 0;
+            if ($this->textoAdic != '') {
+                $this->textoAdic .= ". \r\n";
+            }
+            $this->textoAdic .= ! empty($this->infAdic->getElementsByTagName("infCpl")->item(0)->nodeValue) ?
+                'Inf. Contribuinte: ' .
+                trim($this->pAnfavea($this->infAdic->getElementsByTagName("infCpl")->item(0)->nodeValue)) : '';
+            
+            // $infPedido = $this->pGeraInformacoesDaTagCompra();
+            // if ($infPedido != "") {
+            //     $this->textoAdic .= $infPedido;
+            // }
+            // $this->textoAdic .= $this->pSimpleGetValue($this->dest, "email", ' Email do Destinatário: ');
+            // $this->textoAdic .= ! empty($this->infAdic->getElementsByTagName("infAdFisco")->item(0)->nodeValue) ?
+            //     "\r\n Inf. fisco: " .
+            //     trim($this->infAdic->getElementsByTagName("infAdFisco")->item(0)->nodeValue) : '';
+            // $obsCont = $this->infAdic->getElementsByTagName("obsCont");
+            // if (isset($obsCont)) {
+            //     foreach ($obsCont as $obs) {
+            //         $campo =  $obsCont->item($i)->getAttribute("xCampo");
+            //         $xTexto = ! empty($obsCont->item($i)->getElementsByTagName("xTexto")->item(0)->nodeValue) ?
+            //             $obsCont->item($i)->getElementsByTagName("xTexto")->item(0)->nodeValue : '';
+            //         $this->textoAdic .= "\r\n" . $campo . ':  ' . trim($xTexto);
+            //         $i++;
+            //     }
+            // }
+        }
+        //INCLUSO pela NT 2013.003 Lei da Transparência
+        //verificar se a informação sobre o valor aproximado dos tributos
+        //já se encontra no campo de informações adicionais
+        if ($this->exibirValorTributos) {
+            $flagVTT = strpos(strtolower(trim($this->textoAdic)), 'valor');
+            $flagVTT = $flagVTT || strpos(strtolower(trim($this->textoAdic)), 'vl');
+            $flagVTT = $flagVTT && strpos(strtolower(trim($this->textoAdic)), 'aprox');
+            $flagVTT = $flagVTT && (strpos(strtolower(trim($this->textoAdic)), 'trib') ||
+                    strpos(strtolower(trim($this->textoAdic)), 'imp'));
+            $vTotTrib = $this->pSimpleGetValue($this->ICMSTot, 'vTotTrib');
+            if ($vTotTrib != '' && !$flagVTT) {
+                $this->textoAdic .= "\n Valor Aproximado dos Tributos : R$ " . number_format($vTotTrib, 2, ",", ".");
+            }
+        }
+        //fim da alteração NT 2013.003 Lei da Transparência
+        $this->textoAdic = str_replace(";", "\n", $this->textoAdic);
+        $alinhas = explode("\n", $this->textoAdic);
+        $numlinhasdados = 0;
+        foreach ($alinhas as $linha) {
+            $numlinhasdados += $this->pGetNumLines($linha, $this->wAdic, $fontProduto);
+        }
+
+        $hdadosadic = round(($numlinhasdados+3) * $this->pdf->FontSize, 0);
+
+        // if ($hdadosadic < 10) {
+        //     $hdadosadic = 10;
+        // }
+        
+        //altura disponivel para os campos da DANFE
+        $hcabecalho = 47;//para cabeçalho
+
+        if ( $this->retirada ){
+            $hcabecalho += 25;
+        } 
+
+        if ( $this->entrega ){
+            $hcabecalho += 25;
+        }
+
+        $hdestinatario = 25;//para destinatario
+        $hduplicatas = 12;//para cada grupo de 7 duplicatas
+        $himposto = 18;// para imposto
+        $htransporte = 25;// para transporte
+        $hissqn = 11;// para issqn
+        $hfooter = $hdadosadic;// para rodape
+        $hCabecItens = 4;//cabeçalho dos itens
+
+       
+        $is_new_page = false;
+
+        if ($hdadosadic > 40){
+            
+            $hfooter = 4;
+            
+            $is_new_page = true;
+
+            $hDispo1 = $this->hPrint - 10 - ($hcabecalho +
+                $hdestinatario + ($linhasDup * $hduplicatas) + $himposto + $htransporte +
+                ($linhaISSQN * $hissqn) + $hfooter + $hCabecItens +
+                $this->pSizeExtraTextoFatura());
+        
+        } else {
+
+            $hDispo1 = $this->hPrint + 5 - ($hcabecalho +
+                $hdestinatario + ($linhasDup * $hduplicatas) + $himposto + $htransporte +
+                ($linhaISSQN * $hissqn) + $hdadosadic + $hfooter + $hCabecItens +
+                $this->pSizeExtraTextoFatura());
+        }
+
+        if ($this->orientacao == 'P') {
+            $hDispo1 -= 23 * $this->qCanhoto;//para canhoto
+            $w = $this->wPrint;
+        } else {
+            $hcanhoto = $this->hPrint;//para canhoto
+            $w = $this->wPrint - $this->wCanhoto;
+        }
+        $hDispo2 = $this->hPrint - 10 - ($hcabecalho)-15;
+        //Contagem da altura ocupada para impressão dos itens
+        $fontProduto = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
+        $i = 0;
+        $numlinhas = 0;
+        $hUsado = $hCabecItens;
+        $w2 = round($w*0.28, 0);
+        $hDispo = $hDispo1;
+
+        $hasTagMed = false;
+
+        $ind = 0;
+        foreach ($this->det as $d) {
+
+            $thisItem = $this->det->item($ind);
+            //carrega as tags do item
+            $prod = $thisItem->getElementsByTagName("prod")->item(0);
+
+            $tagMed = $prod->getElementsByTagName("med");
+            
+            $tagRastro = $prod->getElementsByTagName("rastro");
+
+            if($tagMed->length > 0 || $tagRastro->length > 0){
+                $hasTagMed = true;
+            }
+
+            $ind++;
+        }
+
+        if($hasTagMed){
+
+            $w2 = round($w*0.25, 0);
+
+        } else {
+
+            $w2 = round($w*0.30, 0);
+
+        }
+
+        $totPag = 1;
+        while ($i < $this->det->length) {
+            $texto = $this->pDescricaoProduto($this->det->item($i));
+            $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
+            $hUsado += round(($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.3), 2);
+            if ($hUsado > $hDispo) {
+                $totPag++;
+                $hDispo = $hDispo2;
+                $hUsado = $hCabecItens;
+                // Remove canhoto para páginas secundárias em modo paisagem ('L')
+                $w2 = round($this->wPrint*0.28, 0);
+                $i--; // decrementa para readicionar o item que não coube nessa pagina na outra.
+            }
+            $i++;
+        } //fim da soma das areas de itens usadas
+        $qtdeItens = $i; //controle da quantidade de itens no DANFE
+        //montagem da primeira página
+        $pag = 1;
+        $x = $xInic;
+        $y = $yInic;
+        //coloca o(s) canhoto(s) da NFe
+        if ($this->orientacao == 'P') {
+            for ($i = 1; $i <= $this->qCanhoto; $i++) {
+                $y = $this->pCanhoto($x, $y);
+            }
+        } else {
+            for ($i = 1; $i <= $this->qCanhoto; $i++) {
+                $this->pCanhoto($x, $y);
+                $x = 25 * $i;
+            }
+        }
+        //coloca o cabeçalho
+        $y = $this->pCabecalhoDANFE($x, $y, $pag, $totPag);
+        //coloca os dados do destinatário
+        $y = $this->pDestinatarioDANFE($x, $y+1);
+
+        if ($this->retirada){
+            
+            $y = $this->pRetiradaDANFE($x, $y+1);
+
+        } 
+
+        if ($this->entrega){
+
+
+            $y = $this->pEntregaDANFE($x, $y+1);
+
+        }
+        //coloca os dados das faturas
+        $y = $this->pFaturaDANFE($x, $y+1);
+        //coloca os dados dos impostos e totais da NFe
+        $y = $this->pImpostoDANFE($x, $y+1);
+        //coloca os dados do trasnporte
+        $y = $this->pTransporteDANFE($x, $y+1);
+        //itens da DANFE
+        $nInicial = 0;
+        $y = $this->pItensDANFE($x, $y+1, $nInicial, $hDispo1, $pag, $totPag, $hCabecItens, $hasTagMed);
+        //coloca os dados do ISSQN
+        if ($linhaISSQN == 1) {
+            $y = $this->pIssqnDANFE($x, $y+4);
+        } else {
+            $y += 4;
+        }
+        //coloca os dados adicionais da NFe
+
+        if (!$is_new_page){  
+            // $hdadosadic = 55;
+            $y = $this->pDadosAdicionaisDANFE($x, $y, $hdadosadic);
+        }
+
+        //coloca o rodapé da página
+        if ($this->orientacao == 'P') {
+            $this->pRodape($xInic, $y-1);
+        } else {
+            $this->pRodape($xInic, $this->hPrint + 1);
+        }
+
+        //loop para páginas seguintes
+        for ($n = 2; $n <= $totPag; $n++) {
+            // fixa as margens
+            $this->pdf->setMargins($margEsq, $margSup);
+            //adiciona nova página
+            $this->pdf->addPage($this->orientacao, $this->papel);
+            //ajusta espessura das linhas
+            $this->pdf->setLineWidth(0.1);
+            //seta a cor do texto para petro
+            $this->pdf->setTextColor(0, 0, 0);
+            // posição inicial do relatorio
+            $x = $xInic;
+            $y = $yInic;
+            //coloca o cabeçalho na página adicional
+            $y = $this->pCabecalhoDANFE($x, $y, $n, $totPag);
+            //coloca os itens na página adicional
+            $y = $this->pItensDANFE($x, $y+1, $nInicial, $hDispo2, $n, $totPag, $hCabecItens, $hasTagMed);
+            //coloca o rodapé da página
+            if ($this->orientacao == 'P') {
+                $this->pRodape($xInic, $y + 4);
+            } else {
+                $this->pRodape($xInic, $this->hPrint + 4);
+            }
+            //se estiver na última página e ainda restar itens para inserir, adiciona mais uma página
+            if ($n == $totPag && $this->qtdeItensProc < $qtdeItens) {
+                $totPag++;
+            }
+        }
+
+        if ($is_new_page){  
+
+            $this->pdf->setMargins($margEsq, $margSup);
+            //adiciona nova página
+            $this->pdf->addPage($this->orientacao, $this->papel);
+            //ajusta espessura das linhas
+            $this->pdf->setLineWidth(0.1);
+            //seta a cor do texto para petro
+            $this->pdf->setTextColor(0, 0, 0);
+
+            $x = $xInic;
+            
+            $y = $yInic;
+            //coloca o cabeçalho na página adicional
+            $y = $this->pCabecalhoDANFE($x, $y, $n, $totPag);
+            
+            $hdadosadic = $this->hPrint - $y;
+
+            $y = $this->pDadosAdicionaisDANFE($x, $y, $hdadosadic);
+        }
+        //retorna o ID na NFe
+        if ($classPdf!==false) {
+            $aR = array(
+             'id'=>str_replace('NFe', '', $this->infNFe->getAttribute("Id")),
+             'classe_PDF'=>$this->pdf);
+            return $aR;
+        } else {
+            return str_replace('NFe', '', $this->infNFe->getAttribute("Id"));
+        }
+    }//fim da função montaDANFE
 
     /**
-     * Retorns the key number of NFe (44 digits)
+     * anfavea
+     * Função para transformar o campo cdata do padrão ANFAVEA para
+     * texto imprimível
+     *
+     * @param  string $cdata campo CDATA
+     * @return string conteúdo do campo CDATA como string
+     */
+    private function pAnfavea($cdata = '')
+    {
+        if ($cdata == '') {
+            return '';
+        }
+        //remove qualquer texto antes ou depois da tag CDATA
+        $cdata = str_replace('<![CDATA[', '<CDATA>', $cdata);
+        $cdata = str_replace(']]>', '</CDATA>', $cdata);
+        $cdata = preg_replace('/\s\s+/', ' ', $cdata);
+        $cdata = str_replace("> <", "><", $cdata);
+        $len = strlen($cdata);
+        $startPos = strpos($cdata, '<');
+        if ($startPos === false) {
+            return $cdata;
+        }
+        
+        $endPos = 0;
+
+        for ($x=$len; $x>0; $x--) {
+            if (substr($cdata, $x, 1) == '>') {
+                $endPos = $x;
+                break;
+            }
+        }
+        if ($startPos > 0) {
+            $parte1 = substr($cdata, 0, $startPos);
+        } else {
+            $parte1 = '';
+        }
+        $parte2 = substr($cdata, $startPos, $endPos-$startPos+1);
+        if ($endPos < $len) {
+            $parte3 = substr($cdata, $endPos + 1, $len - $endPos - 1);
+        } else {
+            $parte3 = '';
+        }
+        $texto = trim($parte1).' '.trim($parte3);
+        if (strpos($parte2, '<CDATA>') === false) {
+            $cdata = '<CDATA>'.$parte2.'</CDATA>';
+        } else {
+            $cdata = $parte2;
+        }
+        //carrega o xml CDATA em um objeto DOM
+        $dom = new Dom();
+        $dom->loadXML($cdata, LIBXML_NOBLANKS | LIBXML_NOEMPTYTAG);
+        //$xml = $dom->saveXML();
+        //grupo CDATA infADprod
+        $id = $dom->getElementsByTagName('id')->item(0);
+        $div = $dom->getElementsByTagName('div')->item(0);
+        $entg = $dom->getElementsByTagName('entg')->item(0);
+        $dest = $dom->getElementsByTagName('dest')->item(0);
+        $ctl = $dom->getElementsByTagName('ctl')->item(0);
+        $ref = $dom->getElementsByTagName('ref')->item(0);
+        if (isset($id)) {
+            if ($id->hasAttributes()) {
+                foreach ($id->attributes as $attr) {
+                    $name = $attr->nodeName;
+                    $value = $attr->nodeValue;
+                    $texto .= " $name : $value";
+                }
+            }
+        }
+        if (isset($div)) {
+            if ($div->hasAttributes()) {
+                foreach ($div->attributes as $attr) {
+                    $name = $attr->nodeName;
+                    $value = $attr->nodeValue;
+                    $texto .= " $name : $value";
+                }
+            }
+        }
+        if (isset($entg)) {
+            if ($entg->hasAttributes()) {
+                foreach ($entg->attributes as $attr) {
+                    $name = $attr->nodeName;
+                    $value = $attr->nodeValue;
+                    $texto .= " $name : $value";
+                }
+            }
+        }
+        if (isset($dest)) {
+            if ($dest->hasAttributes()) {
+                foreach ($dest->attributes as $attr) {
+                    $name = $attr->nodeName;
+                    $value = $attr->nodeValue;
+                    $texto .= " $name : $value";
+                }
+            }
+        }
+        if (isset($ctl)) {
+            if ($ctl->hasAttributes()) {
+                foreach ($ctl->attributes as $attr) {
+                    $name = $attr->nodeName;
+                    $value = $attr->nodeValue;
+                    $texto .= " $name : $value";
+                }
+            }
+        }
+        if (isset($ref)) {
+            if ($ref->hasAttributes()) {
+                foreach ($ref->attributes as $attr) {
+                    $name = $attr->nodeName;
+                    $value = $attr->nodeValue;
+                    $texto .= " $name : $value";
+                }
+            }
+        }
+        //grupo CADATA infCpl
+        $t = $dom->getElementsByTagName('transmissor')->item(0);
+        $r = $dom->getElementsByTagName('receptor')->item(0);
+        $versao = ! empty($dom->getElementsByTagName('versao')->item(0)->nodeValue) ?
+            'Versao:'.$dom->getElementsByTagName('versao')->item(0)->nodeValue.' ' : '';
+        $especieNF = ! empty($dom->getElementsByTagName('especieNF')->item(0)->nodeValue) ?
+            'Especie:'.$dom->getElementsByTagName('especieNF')->item(0)->nodeValue.' ' : '';
+        $fabEntrega = ! empty($dom->getElementsByTagName('fabEntrega')->item(0)->nodeValue) ?
+            'Entrega:'.$dom->getElementsByTagName('fabEntrega')->item(0)->nodeValue.' ' : '';
+        $dca = ! empty($dom->getElementsByTagName('dca')->item(0)->nodeValue) ?
+            'dca:'.$dom->getElementsByTagName('dca')->item(0)->nodeValue.' ' : '';
+        $texto .= "".$versao.$especieNF.$fabEntrega.$dca;
+        if (isset($t)) {
+            if ($t->hasAttributes()) {
+                $texto .= " Transmissor ";
+                foreach ($t->attributes as $attr) {
+                    $name = $attr->nodeName;
+                    $value = $attr->nodeValue;
+                    $texto .= " $name : $value";
+                }
+            }
+        }
+        if (isset($r)) {
+            if ($r->hasAttributes()) {
+                $texto .= " Receptor ";
+                foreach ($r->attributes as $attr) {
+                    $name = $attr->nodeName;
+                    $value = $attr->nodeValue;
+                    $texto .= " $name : $value";
+                }
+            }
+        }
+        return $texto;
+    }
+    
+    /**
+     * Dados brutos do PDF
      * @return string
      */
-    public function getChave()
+    public function render()
     {
-        return $this->chNFe;
+        return $this->pdf->getPdf();
     }
 
-    /**
-     * Returns the model of NFe 55 or 65
-     * @return int
-     */
-    public function getModelo()
+    protected function pNotaCancelada()
     {
-        return $this->mod;
-    }
-
-    /**
-     * Call method of xml assembly. For compatibility only.
-     * @return boolean
-     */
-    public function montaNFe()
-    {
-        return $this->monta();
-    }
-
-    /**
-     * NFe xml mount method
-     * this function returns TRUE on success or FALSE on error
-     * The xml of the NFe must be retrieved by the getXML() function or
-     * directly by the public property $xml
-     * @return boolean
-     */
-    public function monta()
-    {
-        if (count($this->erros) > 0) {
+        if (!isset($this->nfeProc)) {
             return false;
         }
-        //cria a tag raiz da Nfe
-        $this->buildNFe();
-        //processa nfeRef e coloca as tags na tag ide
-        foreach ($this->aNFref as $nfeRef) {
-            $this->dom->appChild($this->ide, $nfeRef, 'Falta tag "ide"');
-        }
-        //monta as tags det com os detalhes dos produtos
-        $this->buildDet();
-        //[2] tag ide (5 B01)
-        $this->dom->appChild($this->infNFe, $this->ide, 'Falta tag "infNFe"');
-        //[8] tag emit (30 C01)
-        $this->dom->appChild($this->infNFe, $this->emit, 'Falta tag "infNFe"');
-        //[10] tag dest (62 E01)
-        $this->dom->appChild($this->infNFe, $this->dest, 'Falta tag "infNFe"');
-        //[12] tag retirada (80 F01)
-        $this->dom->appChild($this->infNFe, $this->retirada, 'Falta tag "infNFe"');
-        //[13] tag entrega (89 G01)
-        $this->dom->appChild($this->infNFe, $this->entrega, 'Falta tag "infNFe"');
-        //[14] tag autXML (97a.1 G50)
-        foreach ($this->aAutXML as $aut) {
-            $this->dom->appChild($this->infNFe, $aut, 'Falta tag "infNFe"');
-        }
-        //[14a] tag det (98 H01)
-        foreach ($this->aDet as $det) {
-            $this->dom->appChild($this->infNFe, $det, 'Falta tag "infNFe"');
-        }
-        //[28a] tag total (326 W01)
-        $this->dom->appChild($this->infNFe, $this->total, 'Falta tag "infNFe"');
-        //mota a tag vol
-        $this->buildVol();
-        //[32] tag transp (356 X01)
-        $this->dom->appChild($this->infNFe, $this->transp, 'Falta tag "infNFe"');
-        //[39a] tag cobr (389 Y01)
-        $this->dom->appChild($this->infNFe, $this->cobr, 'Falta tag "infNFe"');
-        //[42] tag pag (398a YA01)
-        //processa aPag e coloca as tags na tag pag
-        $this->buildTagPag();
-        //[44] tag infAdic (399 Z01)
-        $this->dom->appChild($this->infNFe, $this->infAdic, 'Falta tag "infNFe"');
-        //[48] tag exporta (402 ZA01)
-        $this->dom->appChild($this->infNFe, $this->exporta, 'Falta tag "infNFe"');
-        //[49] tag compra (405 ZB01)
-        $this->dom->appChild($this->infNFe, $this->compra, 'Falta tag "infNFe"');
-        //[50] tag cana (409 ZC01)
-        $this->dom->appChild($this->infNFe, $this->cana, 'Falta tag "infNFe"');
-
-        //Responsável Técnico
-        $this->dom->appChild($this->infNFe, $this->infRespTec, 'Falta tag "infNFe"');
-        
-        //[1] tag infNFe (1 A01)
-        $this->dom->appChild($this->NFe, $this->infNFe, 'Falta tag "NFe"');
-        //[0] tag NFe
-        $this->dom->appendChild($this->NFe);
-        // testa da chave
-        $this->checkNFeKey($this->dom);
-        $this->xml = $this->dom->saveXML();
-        return true;
+        $cStat = $this->pSimpleGetValue($this->nfeProc, "cStat");
+        return $cStat == '101' ||
+                $cStat == '151' ||
+                $cStat == '135' ||
+                $cStat == '155' ||
+                $this->situacao_externa == self::SIT_CANCELADA;
     }
 
-    /**
-     * Informações da NF-e A01 pai NFe
-     * tag NFe/infNFe
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function taginfNFe(stdClass $std)
+    protected function pNotaDPEC()
     {
-        $possible = ['Id', 'versao', 'pk_nItem'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $chave = preg_replace('/[^0-9]/', '', $std->Id);
-        $this->infNFe = $this->dom->createElement("infNFe");
-        $this->infNFe->setAttribute("Id", 'NFe' . $chave);
-        $this->infNFe->setAttribute(
-            "versao",
-            $std->versao
-        );
-        $this->version = $std->versao;
-        if (!empty($std->pk_nItem)) {
-            $this->infNFe->setAttribute("pk_nItem", $std->pk_nItem);
-        }
-        $this->chNFe = $chave;
-        return $this->infNFe;
+        return $this->situacao_externa == self::SIT_DPEC && $this->numero_registro_dpec != '';
     }
 
-    /**
-     * Informações de identificação da NF-e B01 pai A01
-     * NOTA: Ajustado para NT2016_002_v1.30
-     * tag NFe/infNFe/ide
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function tagide(stdClass $std)
+    protected function pNotaDenegada()
     {
-        $possible = [
-            'cUF',
-            'cNF',
-            'natOp',
-            'indPag',
-            'mod',
-            'serie',
-            'nNF',
-            'dhEmi',
-            'dhSaiEnt',
-            'tpNF',
-            'idDest',
-            'cMunFG',
-            'tpImp',
-            'tpEmis',
-            'cDV',
-            'tpAmb',
-            'finNFe',
-            'indFinal',
-            'indPres',
-            'procEmi',
-            'verProc',
-            'dhCont',
-            'xJust'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-        if (empty($std->cNF)) {
-            $std->cNF = Keys::random();
+        if (!isset($this->nfeProc)) {
+            return false;
         }
-        if (empty($std->cDV)) {
-            $std->cDV = 0;
-        }
-        $this->tpAmb = $std->tpAmb;
-        $this->mod = $std->mod;
-        $identificador = 'B01 <ide> - ';
-        
-        $dateNow = new \DateTime();
-
-        $dateTxt = new \DateTime($std->dhEmi);
-
-        if ($dateNow < $dateTxt){
-                
-            $std->dhEmi = date('c');
-            
-            $std->dhSaiEnt =  date('c');
-
-        }
-
-        $ide = $this->dom->createElement("ide");
-
-        $this->dom->addChild(
-            $ide,
-            "cUF",
-            $std->cUF,
-            true,
-            $identificador . "Código da UF do emitente do Documento Fiscal"
-        );
-        $this->dom->addChild(
-            $ide,
-            "cNF",
-            str_pad($std->cNF, 8, '0', STR_PAD_LEFT),
-            true,
-            $identificador . "Código Numérico que compõe a Chave de Acesso"
-        );
-        $this->dom->addChild(
-            $ide,
-            "natOp",
-            Strings::replaceSpecialsChars(substr(trim($std->natOp), 0, 60)),
-            true,
-            $identificador . "Descrição da Natureza da Operação"
-        );
-        //removido desta posição no layout 4.00
-        if ($this->version == '3.10') {
-            $this->dom->addChild(
-                $ide,
-                "indPag",
-                $std->indPag,
-                true,
-                $identificador . "Indicador da forma de pagamento"
-            );
-        }
-
-        $this->dom->addChild(
-            $ide,
-            "mod",
-            $std->mod,
-            true,
-            $identificador . "Código do Modelo do Documento Fiscal"
-        );
-        $this->dom->addChild(
-            $ide,
-            "serie",
-            intval($std->serie),
-            true,
-            $identificador . "Série do Documento Fiscal"
-        );
-        $this->dom->addChild(
-            $ide,
-            "nNF",
-            (int)$std->nNF,
-            true,
-            $identificador . "Número do Documento Fiscal"
-        );
-        $this->dom->addChild(
-            $ide,
-            "dhEmi",
-            $std->dhEmi,
-            true,
-            $identificador . "Data e hora de emissão do Documento Fiscal"
-        );
-        if ($std->mod == '55' && !empty($std->dhSaiEnt)) {
-            $this->dom->addChild(
-                $ide,
-                "dhSaiEnt",
-                $std->dhSaiEnt,
-                false,
-                $identificador . "Data e hora de Saída ou da Entrada da Mercadoria/Produto"
-            );
-        }
-        $this->dom->addChild(
-            $ide,
-            "tpNF",
-            $std->tpNF,
-            true,
-            $identificador . "Tipo de Operação"
-        );
-        $this->dom->addChild(
-            $ide,
-            "idDest",
-            $std->idDest,
-            true,
-            $identificador . "Identificador de local de destino da operação"
-        );
-        $this->dom->addChild(
-            $ide,
-            "cMunFG",
-            $std->cMunFG,
-            true,
-            $identificador . "Código do Município de Ocorrência do Fato Gerador"
-        );
-        $this->dom->addChild(
-            $ide,
-            "tpImp",
-            $std->tpImp,
-            true,
-            $identificador . "Formato de Impressão do DANFE"
-        );
-        $this->dom->addChild(
-            $ide,
-            "tpEmis",
-            $std->tpEmis,
-            true,
-            $identificador . "Tipo de Emissão da NF-e"
-        );
-        $this->dom->addChild(
-            $ide,
-            "cDV",
-            !empty($std->cDV) ? $std->cDV : '0',
-            true,
-            $identificador . "Dígito Verificador da Chave de Acesso da NF-e"
-        );
-        $this->dom->addChild(
-            $ide,
-            "tpAmb",
-            $std->tpAmb,
-            true,
-            $identificador . "Identificação do Ambiente"
-        );
-        $this->dom->addChild(
-            $ide,
-            "finNFe",
-            $std->finNFe,
-            true,
-            $identificador . "Finalidade de emissão da NF-e"
-        );
-        $this->dom->addChild(
-            $ide,
-            "indFinal",
-            $std->indFinal,
-            true,
-            $identificador . "Indica operação com Consumidor final"
-        );
-        $this->dom->addChild(
-            $ide,
-            "indPres",
-            $std->indPres,
-            true,
-            $identificador . "Indicador de presença do comprador no estabelecimento comercial no momento da operação"
-        );
-        $this->dom->addChild(
-            $ide,
-            "procEmi",
-            $std->procEmi,
-            true,
-            $identificador . "Processo de emissão da NF-e"
-        );
-        $this->dom->addChild(
-            $ide,
-            "verProc",
-            $std->verProc,
-            true,
-            $identificador . "Versão do Processo de emissão da NF-e"
-        );
-        if (!empty($std->dhCont) && !empty($std->xJust)) {
-            $this->dom->addChild(
-                $ide,
-                "dhCont",
-                $std->dhCont,
-                true,
-                $identificador . "Data e Hora da entrada em contingência"
-            );
-            $this->dom->addChild(
-                $ide,
-                "xJust",
-                Strings::replaceSpecialsChars(substr(trim($std->xJust), 0, 256)),
-                true,
-                $identificador . "Justificativa da entrada em contingência"
-            );
-        }
-        $this->ide = $ide;
-        return $ide;
+        //NÃO ERA NECESSÁRIO ESSA FUNÇÃO POIS SÓ SE USA
+        //1 VEZ NO ARQUIVO INTEIRO
+        $cStat = $this->pSimpleGetValue($this->nfeProc, "cStat");
+        return $cStat == '110' ||
+               $cStat == '301' ||
+               $cStat == '302' ||
+               $this->situacao_externa == self::SIT_DENEGADA;
     }
 
     /**
-     * Chave de acesso da NF-e referenciada BA02 pai BA01
-     * tag NFe/infNFe/ide/NFref/refNFe
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function tagrefNFe(stdClass $std)
-    {
-        $possible = ['refNFe'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $num = $this->buildNFref();
-        $refNFe = $this->dom->createElement("refNFe", $std->refNFe);
-        $this->dom->appChild($this->aNFref[$num - 1], $refNFe);
-        return $refNFe;
-    }
-
-    /**
-     * Informação da NF modelo 1/1A referenciada BA03 pai BA01
-     * tag NFe/infNFe/ide/NFref/NF DOMNode
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function tagrefNF(stdClass $std)
-    {
-        $possible = ['cUF', 'AAMM', 'CNPJ', 'mod', 'serie', 'nNF'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'BA03 <refNF> - ';
-        $num = $this->buildNFref();
-        $refNF = $this->dom->createElement("refNF");
-        $this->dom->addChild(
-            $refNF,
-            "cUF",
-            $std->cUF,
-            true,
-            $identificador . "Código da UF do emitente"
-        );
-        $this->dom->addChild(
-            $refNF,
-            "AAMM",
-            $std->AAMM,
-            true,
-            $identificador . "Ano e Mês de emissão da NF-e"
-        );
-        $this->dom->addChild(
-            $refNF,
-            "CNPJ",
-            $std->CNPJ,
-            true,
-            $identificador . "CNPJ do emitente"
-        );
-        $this->dom->addChild(
-            $refNF,
-            "mod",
-            $std->mod,
-            true,
-            $identificador . "Modelo do Documento Fiscal"
-        );
-        $this->dom->addChild(
-            $refNF,
-            "serie",
-            $std->serie,
-            true,
-            $identificador . "Série do Documento Fiscal"
-        );
-        $this->dom->addChild(
-            $refNF,
-            "nNF",
-            $std->nNF,
-            true,
-            $identificador . "Número do Documento Fiscal"
-        );
-        $this->dom->appChild($this->aNFref[$num - 1], $refNF);
-        return $refNF;
-    }
-
-    /**
-     * Informações da NF de produtor rural referenciada BA10 pai BA01
-     * tag NFe/infNFe/ide/NFref/refNFP
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function tagrefNFP(stdClass $std)
-    {
-        $possible = [
-            'cUF',
-            'AAMM',
-            'CNPJ',
-            'CPF',
-            'IE',
-            'mod',
-            'serie',
-            'nNF'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'BA10 <refNFP> - ';
-        $num = $this->buildNFref();
-        $refNFP = $this->dom->createElement("refNFP");
-        $this->dom->addChild(
-            $refNFP,
-            "cUF",
-            $std->cUF,
-            true,
-            $identificador . "Código da UF do emitente"
-        );
-        $this->dom->addChild(
-            $refNFP,
-            "AAMM",
-            $std->AAMM,
-            true,
-            $identificador . "AAMM da emissão da NF de produtor"
-        );
-        $this->dom->addChild(
-            $refNFP,
-            "CNPJ",
-            $std->CNPJ,
-            false,
-            $identificador . "Informar o CNPJ do emitente da NF de produtor"
-        );
-        $this->dom->addChild(
-            $refNFP,
-            "CPF",
-            $std->CPF,
-            false,
-            $identificador . "Informar o CPF do emitente da NF de produtor"
-        );
-        $this->dom->addChild(
-            $refNFP,
-            "IE",
-            $std->IE,
-            true,
-            $identificador . "Informar a IE do emitente da NF de Produtor ou o literal 'ISENTO'"
-        );
-        $this->dom->addChild(
-            $refNFP,
-            "mod",
-            str_pad($std->mod, 2, '0', STR_PAD_LEFT),
-            true,
-            $identificador . "Modelo do Documento Fiscal"
-        );
-        $this->dom->addChild(
-            $refNFP,
-            "serie",
-            $std->serie,
-            true,
-            $identificador . "Série do Documento Fiscal"
-        );
-        $this->dom->addChild(
-            $refNFP,
-            "nNF",
-            $std->nNF,
-            true,
-            $identificador . "Número do Documento Fiscal"
-        );
-        $this->dom->appChild($this->aNFref[$num - 1], $refNFP);
-        return $refNFP;
-    }
-
-    /**
-     * Chave de acesso do CT-e referenciada BA19 pai BA01
-     * tag NFe/infNFe/ide/NFref/refCTe
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function tagrefCTe(stdClass $std)
-    {
-        $possible = ['refCTe'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $num = $this->buildNFref();
-        $refCTe = $this->dom->createElement("refCTe", $std->refCTe);
-        $this->dom->appChild($this->aNFref[$num - 1], $refCTe);
-        return $refCTe;
-    }
-
-    /**
-     * Informações do Cupom Fiscal referenciado BA20 pai BA01
-     * tag NFe/infNFe/ide/NFref/refECF
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagrefECF(stdClass $std)
-    {
-        $possible = ['mod', 'nECF', 'nCOO'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'BA20 <refECF> - ';
-        $num = $this->buildNFref();
-        $refECF = $this->dom->createElement("refECF");
-        $this->dom->addChild(
-            $refECF,
-            "mod",
-            $std->mod,
-            true,
-            $identificador . "Modelo do Documento Fiscal"
-        );
-        $this->dom->addChild(
-            $refECF,
-            "nECF",
-            str_pad($std->nECF, 3, '0', STR_PAD_LEFT),
-            true,
-            $identificador . "Número de ordem sequencial do ECF"
-        );
-        $this->dom->addChild(
-            $refECF,
-            "nCOO",
-            str_pad($std->nCOO, 6, '0', STR_PAD_LEFT),
-            true,
-            $identificador . "Número do Contador de Ordem de Operação - COO"
-        );
-        $this->dom->appChild($this->aNFref[$num - 1], $refECF);
-        return $refECF;
-    }
-
-    /**
-     * Identificação do emitente da NF-e C01 pai A01
-     * tag NFe/infNFe/emit
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function tagemit(stdClass $std)
-    {
-        $possible = [
-            'xNome',
-            'xFant',
-            'IE',
-            'IEST',
-            'IM',
-            'CNAE',
-            'CRT',
-            'CNPJ',
-            'CPF'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'C01 <emit> - ';
-        $this->emit = $this->dom->createElement("emit");
-        $this->dom->addChild(
-            $this->emit,
-            "CNPJ",
-            Strings::onlyNumbers($std->CNPJ),
-            false,
-            $identificador . "CNPJ do emitente"
-        );
-        $this->dom->addChild(
-            $this->emit,
-            "CPF",
-            Strings::onlyNumbers($std->CPF),
-            false,
-            $identificador . "CPF do remetente"
-        );
-        $this->dom->addChild(
-            $this->emit,
-            "xNome",
-            Strings::replaceSpecialsChars(substr(trim($std->xNome), 0, 60)),
-            true,
-            $identificador . "Razão Social ou Nome do emitente"
-        );
-        $this->dom->addChild(
-            $this->emit,
-            "xFant",
-            Strings::replaceSpecialsChars(substr(trim($std->xFant), 0, 60)),
-            false,
-            $identificador . "Nome fantasia do emitente"
-        );
-        $this->dom->addChild(
-            $this->emit,
-            "IE",
-            Strings::onlyNumbers($std->IE),
-            true,
-            $identificador . "Inscrição Estadual do emitente"
-        );
-        $this->dom->addChild(
-            $this->emit,
-            "IEST",
-            Strings::onlyNumbers($std->IEST),
-            false,
-            $identificador . "IE do Substituto Tributário do emitente"
-        );
-        $this->dom->addChild(
-            $this->emit,
-            "IM",
-            $std->IM,
-            false,
-            $identificador . "Inscrição Municipal do Prestador de Serviço do emitente"
-        );
-        $this->dom->addChild(
-            $this->emit,
-            "CNAE",
-            Strings::onlyNumbers($std->CNAE),
-            false,
-            $identificador . "CNAE fiscal do emitente"
-        );
-        $this->dom->addChild(
-            $this->emit,
-            "CRT",
-            $std->CRT,
-            true,
-            $identificador . "Código de Regime Tributário do emitente"
-        );
-        return $this->emit;
-    }
-
-    /**
-     * Endereço do emitente C05 pai C01
-     * tag NFe/infNFe/emit/endEmit
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagenderEmit(stdClass $std)
-    {
-        $possible = [
-            'xLgr',
-            'nro',
-            'xCpl',
-            'xBairro',
-            'cMun',
-            'xMun',
-            'UF',
-            'CEP',
-            'cPais',
-            'xPais',
-            'fone'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'C05 <enderEmit> - ';
-        $this->enderEmit = $this->dom->createElement("enderEmit");
-        $this->dom->addChild(
-            $this->enderEmit,
-            "xLgr",
-            Strings::replaceSpecialsChars(substr(trim($std->xLgr), 0, 60)),
-            true,
-            $identificador . "Logradouro do Endereço do emitente"
-        );
-        $this->dom->addChild(
-            $this->enderEmit,
-            "nro",
-            Strings::replaceSpecialsChars(substr(trim($std->nro), 0, 60)),
-            true,
-            $identificador . "Número do Endereço do emitente"
-        );
-        $this->dom->addChild(
-            $this->enderEmit,
-            "xCpl",
-            Strings::replaceSpecialsChars(substr(trim($std->xCpl), 0, 60)),
-            false,
-            $identificador . "Complemento do Endereço do emitente"
-        );
-        $this->dom->addChild(
-            $this->enderEmit,
-            "xBairro",
-            Strings::replaceSpecialsChars(substr(trim($std->xBairro), 0, 60)),
-            true,
-            $identificador . "Bairro do Endereço do emitente"
-        );
-        $this->dom->addChild(
-            $this->enderEmit,
-            "cMun",
-            Strings::onlyNumbers($std->cMun),
-            true,
-            $identificador . "Código do município do Endereço do emitente"
-        );
-        $this->dom->addChild(
-            $this->enderEmit,
-            "xMun",
-            Strings::replaceSpecialsChars(substr(trim($std->xMun), 0, 60)),
-            true,
-            $identificador . "Nome do município do Endereço do emitente"
-        );
-        $this->dom->addChild(
-            $this->enderEmit,
-            "UF",
-            strtoupper(trim($std->UF)),
-            true,
-            $identificador . "Sigla da UF do Endereço do emitente"
-        );
-        $this->dom->addChild(
-            $this->enderEmit,
-            "CEP",
-            Strings::onlyNumbers($std->CEP),
-            true,
-            $identificador . "Código do CEP do Endereço do emitente"
-        );
-        $this->dom->addChild(
-            $this->enderEmit,
-            "cPais",
-            Strings::onlyNumbers($std->cPais),
-            false,
-            $identificador . "Código do País do Endereço do emitente"
-        );
-        $this->dom->addChild(
-            $this->enderEmit,
-            "xPais",
-            Strings::replaceSpecialsChars(substr(trim($std->xPais), 0, 60)),
-            false,
-            $identificador . "Nome do País do Endereço do emitente"
-        );
-        $this->dom->addChild(
-            $this->enderEmit,
-            "fone",
-            trim($std->fone),
-            false,
-            $identificador . "Telefone do Endereço do emitente"
-        );
-        $node = $this->emit->getElementsByTagName("IE")->item(0);
-        $this->emit->insertBefore($this->enderEmit, $node);
-        return $this->enderEmit;
-    }
-
-    /**
-     * Identificação do Destinatário da NF-e E01 pai A01
-     * tag NFe/infNFe/dest (opcional para modelo 65)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagdest(stdClass $std)
-    {
-        $possible = [
-            'xNome',
-            'indIEDest',
-            'IE',
-            'ISUF',
-            'IM',
-            'email',
-            'CNPJ',
-            'CPF',
-            'idEstrangeiro'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'E01 <dest> - ';
-        $flagNome = true; //marca se xNome é ou não obrigatório
-        $temIE = $std->IE != '' && $std->IE != 'ISENTO'; // Tem inscrição municipal
-        $this->dest = $this->dom->createElement("dest");
-        if (!$temIE && $std->indIEDest == 1) {
-            $std->indIEDest = 2;
-        }
-        if ($this->mod == '65') {
-            $std->indIEDest = 9;
-            if ($std->xNome == '') {
-                $flagNome = false; //marca se xNome é ou não obrigatório
-            }
-        }
-        $xNome = $std->xNome;
-        if ($this->tpAmb == '2') {
-            $xNome = 'NF-E EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL';
-            //a exigência do CNPJ 99999999000191 não existe mais
-        }
-
-        if (!empty($std->CNPJ)) {
-
-            $this->dom->addChild(
-                $this->dest,
-                "CNPJ",
-                Strings::onlyNumbers($std->CNPJ),
-                true,
-                $identificador . "CNPJ do destinatário"
-            );
-        } elseif (!empty($std->CPF)) {
-
-            $this->dom->addChild(
-                $this->dest,
-                "CPF",
-                Strings::onlyNumbers($std->CPF),
-                true,
-                $identificador . "CPF do destinatário"
-            );
-        } else {
-
-            $this->dom->addChild(
-                $this->dest,
-                "idEstrangeiro",
-                Strings::replaceSpecialsChars(substr(trim($std->idEstrangeiro), 0, 50)),
-                true,
-                $identificador . "Identificação do destinatário no caso de comprador estrangeiro"
-            );
-            $std->indIEDest = '9';
-        }
-
-        $this->dom->addChild(
-            $this->dest,
-            "xNome",
-            Strings::replaceSpecialsChars(substr(trim($xNome), 0, 60)),
-            $flagNome, //se mod 55 true ou mod 65 false
-            $identificador . "Razão Social ou nome do destinatário"
-        );
-        $this->dom->addChild(
-            $this->dest,
-            "indIEDest",
-            Strings::onlyNumbers($std->indIEDest),
-            true,
-            $identificador . "Indicador da IE do Destinatário"
-        );
-        if ($temIE) {
-            $this->dom->addChild(
-                $this->dest,
-                "IE",
-                $std->IE,
-                true,
-                $identificador . "Inscrição Estadual do Destinatário"
-            );
-        }
-        $this->dom->addChild(
-            $this->dest,
-            "ISUF",
-            Strings::onlyNumbers($std->ISUF),
-            false,
-            $identificador . "Inscrição na SUFRAMA do destinatário"
-        );
-        $this->dom->addChild(
-            $this->dest,
-            "IM",
-            Strings::onlyNumbers($std->IM),
-            false,
-            $identificador . "Inscrição Municipal do Tomador do Serviço do destinatário"
-        );
-        $this->dom->addChild(
-            $this->dest,
-            "email",
-            Strings::replaceSpecialsChars(substr(trim($std->email), 0, 60)),
-            false,
-            $identificador . "Email do destinatário"
-        );
-        return $this->dest;
-    }
-
-    /**
-     * Endereço do Destinatário da NF-e E05 pai E01
-     * tag NFe/infNFe/dest/enderDest  (opcional para modelo 65)
-     * Os dados do destinatário devem ser inseridos antes deste método
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagenderDest(stdClass $std)
-    {
-        $possible = [
-            'xLgr',
-            'nro',
-            'xCpl',
-            'xBairro',
-            'cMun',
-            'xMun',
-            'UF',
-            'CEP',
-            'cPais',
-            'xPais',
-            'fone'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'E05 <enderDest> - ';
-        if (empty($this->dest)) {
-            throw new RuntimeException('A TAG dest deve ser criada antes do endereço do mesmo.');
-        }
-        $this->enderDest = $this->dom->createElement("enderDest");
-        $this->dom->addChild(
-            $this->enderDest,
-            "xLgr",
-            $std->xLgr,
-            true,
-            $identificador . "Logradouro do Endereço do Destinatário"
-        );
-        $this->dom->addChild(
-            $this->enderDest,
-            "nro",
-            $std->nro,
-            true,
-            $identificador . "Número do Endereço do Destinatário"
-        );
-        $this->dom->addChild(
-            $this->enderDest,
-            "xCpl",
-            $std->xCpl,
-            false,
-            $identificador . "Complemento do Endereço do Destinatário"
-        );
-        $this->dom->addChild(
-            $this->enderDest,
-            "xBairro",
-            $std->xBairro,
-            true,
-            $identificador . "Bairro do Endereço do Destinatário"
-        );
-        $this->dom->addChild(
-            $this->enderDest,
-            "cMun",
-            $std->cMun,
-            true,
-            $identificador . "Código do município do Endereço do Destinatário"
-        );
-        $this->dom->addChild(
-            $this->enderDest,
-            "xMun",
-            $std->xMun,
-            true,
-            $identificador . "Nome do município do Endereço do Destinatário"
-        );
-        $this->dom->addChild(
-            $this->enderDest,
-            "UF",
-            $std->UF,
-            true,
-            $identificador . "Sigla da UF do Endereço do Destinatário"
-        );
-        $this->dom->addChild(
-            $this->enderDest,
-            "CEP",
-            $std->CEP,
-            false,
-            $identificador . "Código do CEP do Endereço do Destinatário"
-        );
-        $this->dom->addChild(
-            $this->enderDest,
-            "cPais",
-            $std->cPais,
-            false,
-            $identificador . "Código do País do Endereço do Destinatário"
-        );
-        $this->dom->addChild(
-            $this->enderDest,
-            "xPais",
-            $std->xPais,
-            false,
-            $identificador . "Nome do País do Endereço do Destinatário"
-        );
-        $this->dom->addChild(
-            $this->enderDest,
-            "fone",
-            $std->fone,
-            false,
-            $identificador . "Telefone do Endereço do Destinatário"
-        );
-        $node = $this->dest->getElementsByTagName("indIEDest")->item(0);
-        if (!isset($node)) {
-            $node = $this->dest->getElementsByTagName("IE")->item(0);
-        }
-        $this->dest->insertBefore($this->enderDest, $node);
-        return $this->enderDest;
-    }
-
-    /**
-     * Identificação do Local de retirada F01 pai A01
-     * tag NFe/infNFe/retirada (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    
-    public function tagretirada(stdClass $std)
-    {
-        $possible = [
-            'xLgr',
-            'nro',
-            'xCpl',
-            'xBairro',
-            'cMun',
-            'xMun',
-            'UF',
-            'CNPJ',
-            'CPF',
-            'xNome',
-            'CEP',
-            'cPais',
-            'xPais',
-            'fone',
-            'email',
-            'IE'  
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'F01 <retirada> - ';
-        $this->retirada = $this->dom->createElement("retirada");
-        $this->dom->addChild(
-            $this->retirada,
-            "CNPJ",
-            $std->CNPJ,
-            false,
-            $identificador . "CNPJ do Cliente da Retirada"
-        );
-        $this->dom->addChild(
-            $this->retirada,
-            "CPF",
-            $std->CPF,
-            false,
-            $identificador . "CPF do Cliente da Retirada"
-        );
-
-        $this->dom->addChild(
-            $this->retirada,
-            "xNome",
-            $std->xNome,
-            false,
-            $identificador . "Razão Social ou Nome do Expedidor"
-        );
-
-        $this->dom->addChild(
-            $this->retirada,
-            "xLgr",
-            $std->xLgr,
-            true,
-            $identificador . "Logradouro do Endereco do Cliente da Retirada"
-        );
-        $this->dom->addChild(
-            $this->retirada,
-            "nro",
-            $std->nro,
-            true,
-            $identificador . "Número do Endereco do Cliente da Retirada"
-        );
-        $this->dom->addChild(
-            $this->retirada,
-            "xCpl",
-            $std->xCpl,
-            false,
-            $identificador . "Complemento do Endereco do Cliente da Retirada"
-        );
-        $this->dom->addChild(
-            $this->retirada,
-            "xBairro",
-            $std->xBairro,
-            true,
-            $identificador . "Bairro do Endereco do Cliente da Retirada"
-        );
-        $this->dom->addChild(
-            $this->retirada,
-            "cMun",
-            $std->cMun,
-            true,
-            $identificador . "Código do município do Endereco do Cliente da Retirada"
-        );
-        $this->dom->addChild(
-            $this->retirada,
-            "xMun",
-            $std->xMun,
-            true,
-            $identificador . "Nome do município do Endereco do Cliente da Retirada"
-        );
-        $this->dom->addChild(
-            $this->retirada,
-            "UF",
-            $std->UF,
-            true,
-            $identificador . "Sigla da UF do Endereco do Cliente da Retirada"
-        );
-
-        $this->dom->addChild(
-            $this->retirada,
-            "CEP",
-            $std->CEP,
-            false,
-            $identificador . "Código do CEP"
-        );
-
-        $this->dom->addChild(
-            $this->retirada,
-            "cPais",
-            $std->cPais,
-            false,
-            $identificador . "Código do País"
-        );
-
-        $this->dom->addChild(
-            $this->retirada,
-            "xPais",
-            $std->xPais,
-            false,
-            $identificador . "Nome do País"
-        );
-
-        $this->dom->addChild(
-            $this->retirada,
-            "fone",
-            $std->fone,
-            false,
-            $identificador . "Telefone"
-        );
-
-        $this->dom->addChild(
-            $this->retirada,
-            "email",
-            $std->email,
-            false,
-            $identificador . "Endereço de e-mail do Expedidor"
-        );
-
-        $this->dom->addChild(
-            $this->retirada,
-            "IE",
-            $std->IE,
-            false,
-            $identificador . "Inscrição Estadual do Estabelecimento Expedidor"
-        );
-
-        return $this->retirada;
-    }
-
-    /**
-     * Identificação do Local de entrega G01 pai A01
-     * tag NFe/infNFe/entrega (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagentrega(stdClass $std)
-    {
-        $possible = [
-            'xLgr',
-            'nro',
-            'xCpl',
-            'xBairro',
-            'cMun',
-            'xMun',
-            'UF',
-            'CNPJ',
-            'CPF',
-            'xNome',
-            'CEP',
-            'cPais',
-            'xPais',
-            'fone',
-            'email',
-            'IE'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'G01 <entrega> - ';
-        $this->entrega = $this->dom->createElement("entrega");
-        $this->dom->addChild(
-            $this->entrega,
-            "CNPJ",
-            $std->CNPJ,
-            false,
-            $identificador . "CNPJ do Cliente da Entrega"
-        );
-        $this->dom->addChild(
-            $this->entrega,
-            "CPF",
-            $std->CPF,
-            false,
-            $identificador . "CPF do Cliente da Entrega"
-        );
-
-        $this->dom->addChild(
-            $this->entrega,
-            "xNome",
-            $std->xNome,
-            false,
-            $identificador . "Razão Social ou Nome do Recebedor"
-        );
-
-        $this->dom->addChild(
-            $this->entrega,
-            "xLgr",
-            $std->xLgr,
-            true,
-            $identificador . "Logradouro do Endereco do Cliente da Entrega"
-        );
-        $this->dom->addChild(
-            $this->entrega,
-            "nro",
-            $std->nro,
-            true,
-            $identificador . "Número do Endereco do Cliente da Entrega"
-        );
-        $this->dom->addChild(
-            $this->entrega,
-            "xCpl",
-            $std->xCpl,
-            false,
-            $identificador . "Complemento do Endereco do Cliente da Entrega"
-        );
-        $this->dom->addChild(
-            $this->entrega,
-            "xBairro",
-            $std->xBairro,
-            true,
-            $identificador . "Bairro do Endereco do Cliente da Entrega"
-        );
-        $this->dom->addChild(
-            $this->entrega,
-            "cMun",
-            $std->cMun,
-            true,
-            $identificador . "Código do município do Endereco do Cliente da Entrega"
-        );
-        $this->dom->addChild(
-            $this->entrega,
-            "xMun",
-            $std->xMun,
-            true,
-            $identificador . "Nome do município do Endereco do Cliente da Entrega"
-        );
-        $this->dom->addChild(
-            $this->entrega,
-            "UF",
-            $std->UF,
-            true,
-            $identificador . "Sigla da UF do Endereco do Cliente da Entrega"
-        );
-
-        $this->dom->addChild(
-            $this->entrega,
-            "CEP",
-            $std->CEP,
-            false,
-            $identificador . "Código do CEP"
-        );
-
-        $this->dom->addChild(
-            $this->entrega,
-            "cPais",
-            $std->cPais,
-            false,
-            $identificador . "Código do País"
-        );
-
-        $this->dom->addChild(
-            $this->entrega,
-            "xPais",
-            $std->xPais,
-            false,
-            $identificador . "Nome do País"
-        );
-
-        $this->dom->addChild(
-            $this->entrega,
-            "fone",
-            $std->fone,
-            false,
-            $identificador . "Telefone"
-        );
-
-        $this->dom->addChild(
-            $this->entrega,
-            "email",
-            $std->email,
-            false,
-            $identificador . "Endereço de e-mail do Expedidor"
-        );
-
-        $this->dom->addChild(
-            $this->entrega,
-            "IE",
-            $std->IE,
-            false,
-            $identificador . "Inscrição Estadual do Estabelecimento Expedidor"
-        );
-        
-        return $this->entrega;
-    }
-
-    /**
-     * Pessoas autorizadas para o download do XML da NF-e G50 pai A01
-     * tag NFe/infNFe/autXML
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagautXML(stdClass $std)
-    {
-        $possible = ['CNPJ', 'CPF'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'G50 <autXML> - ';
-        $std->CNPJ = !empty($std->CNPJ) ? $std->CNPJ : null;
-        $std->CPF = !empty($std->CPF) ? $std->CPF : null;
-        $autXML = $this->dom->createElement("autXML");
-        $this->dom->addChild(
-            $autXML,
-            "CNPJ",
-            $std->CNPJ,
-            false,
-            $identificador . "CNPJ do Cliente Autorizado"
-        );
-        $this->dom->addChild(
-            $autXML,
-            "CPF",
-            $std->CPF,
-            false,
-            $identificador . "CPF do Cliente Autorizado"
-        );
-        $this->aAutXML[] = $autXML;
-        return $autXML;
-    }
-
-    /**
-     * Informações adicionais do produto V01 pai H01
-     * tag NFe/infNFe/det[]/infAdProd
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function taginfAdProd(stdClass $std)
-    {
-        $possible = ['item', 'infAdProd'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $infAdProd = $this->dom->createElement(
-            "infAdProd",
-            Strings::replaceSpecialsChars(substr(trim($std->infAdProd), 0, 500))
-        );
-        $this->aInfAdProd[$std->item] = $infAdProd;
-        return $infAdProd;
-    }
-
-    /**
-     * Detalhamento de Produtos e Serviços I01 pai H01
-     * tag NFe/infNFe/det[]/prod
-     * NOTA: Ajustado para NT2016_002_v1.30
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagprod(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'cProd',
-            'cEAN',
-            'xProd',
-            'NCM',
-            'cBenef',
-            'EXTIPI',
-            'CFOP',
-            'uCom',
-            'qCom',
-            'vUnCom',
-            'vProd',
-            'cEANTrib',
-            'uTrib',
-            'qTrib',
-            'vUnTrib',
-            'vFrete',
-            'vSeg',
-            'vDesc',
-            'vOutro',
-            'indTot',
-            'xPed',
-            'nItemPed',
-            'nFCI'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        //totalizador
-        
-        try{
-
-            if ($std->indTot == 1) {
-                $this->stdTot->vProd += (float) $std->vProd;
-            }
-
-            $this->stdTot->vProd += (float) $std->vProd;
-            $this->stdTot->vFrete += (float) $std->vFrete;
-            $this->stdTot->vSeg += (float) $std->vSeg;
-            $this->stdTot->vDesc += (float) $std->vDesc;
-            $this->stdTot->vOutro += (float) $std->vOutro;
-        } catch (\Exception $e){
-
-        }
-        
-        $cean = !empty($std->cEAN) ? trim(strtoupper($std->cEAN)) : '';
-        $ceantrib = !empty($std->cEANTrib) ? trim(strtoupper($std->cEANTrib)) : '';
-        //throw exception if not is Valid
-        Gtin::isValid($cean);
-        Gtin::isValid($ceantrib);
-        
-        $identificador = 'I01 <prod> - ';
-        $prod = $this->dom->createElement("prod");
-        $this->dom->addChild(
-            $prod,
-            "cProd",
-            $std->cProd,
-            true,
-            $identificador . "[item $std->item] Código do produto ou serviço"
-        );
-        $this->dom->addChild(
-            $prod,
-            "cEAN",
-            $cean,
-            true,
-            $identificador . "[item $std->item] GTIN (Global Trade Item Number) do produto, antigo "
-            . "código EAN ou código de barras",
-            true
-        );
-        $xProd = $std->xProd;
-        if ($this->tpAmb == '2' && $this->mod == '65') {
-            $xProd = 'NOTA FISCAL EMITIDA EM AMBIENTE DE HOMOLOGACAO - SEM VALOR FISCAL';
-        }
-        $this->dom->addChild(
-            $prod,
-            "xProd",
-            $xProd,
-            true,
-            $identificador . "[item $std->item] Descrição do produto ou serviço"
-        );
-        $this->dom->addChild(
-            $prod,
-            "NCM",
-            $std->NCM,
-            true,
-            $identificador . "[item $std->item] Código NCM com 8 dígitos ou 2 dígitos (gênero)"
-        );
-        //incluido no layout 4.00
-        $this->dom->addChild(
-            $prod,
-            "cBenef",
-            $std->cBenef,
-            false,
-            $identificador . "[item $std->item] Código de Benefício Fiscal utilizado pela UF"
-        );
-        $this->dom->addChild(
-            $prod,
-            "EXTIPI",
-            $std->EXTIPI,
-            false,
-            $identificador . "[item $std->item] Preencher de acordo com o código EX da TIPI"
-        );
-        $this->dom->addChild(
-            $prod,
-            "CFOP",
-            $std->CFOP,
-            true,
-            $identificador . "[item $std->item] Código Fiscal de Operações e Prestações"
-        );
-        $this->dom->addChild(
-            $prod,
-            "uCom",
-            strtoupper(Strings::replaceSpecialsChars($std->uCom)),
-            true,
-            $identificador . "[item $std->item] Unidade Comercial do produto"
-        );
-        $this->dom->addChild(
-            $prod,
-            "qCom",
-            $std->qCom,
-            true,
-            $identificador . "[item $std->item] Quantidade Comercial do produto"
-        );
-        $this->dom->addChild(
-            $prod,
-            "vUnCom",
-            $std->vUnCom,
-            true,
-            $identificador . "[item $std->item] Valor Unitário de Comercialização do produto"
-        );
-        $this->dom->addChild(
-            $prod,
-            "vProd",
-            $std->vProd,
-            true,
-            $identificador . "[item $std->item] Valor Total Bruto dos Produtos ou Serviços"
-        );
-        $this->dom->addChild(
-            $prod,
-            "cEANTrib",
-            $ceantrib,
-            true,
-            $identificador . "[item $std->item] GTIN (Global Trade Item Number) da unidade tributável, antigo "
-            . "código EAN ou código de barras",
-            true
-        );
-        $this->dom->addChild(
-            $prod,
-            "uTrib",
-            strtoupper(Strings::replaceSpecialsChars($std->uTrib)),
-            true,
-            $identificador . "[item $std->item] Unidade Tributável do produto"
-        );
-        $this->dom->addChild(
-            $prod,
-            "qTrib",
-            $std->qTrib,
-            true,
-            $identificador . "[item $std->item] Quantidade Tributável do produto"
-        );
-        $this->dom->addChild(
-            $prod,
-            "vUnTrib",
-            $std->vUnTrib,
-            true,
-            $identificador . "[item $std->item] Valor Unitário de tributação do produto"
-        );
-        $this->dom->addChild(
-            $prod,
-            "vFrete",
-            $std->vFrete,
-            false,
-            $identificador . "[item $std->item] Valor Total do Frete"
-        );
-        $this->dom->addChild(
-            $prod,
-            "vSeg",
-            $std->vSeg,
-            false,
-            $identificador . "[item $std->item] Valor Total do Seguro"
-        );
-        $this->dom->addChild(
-            $prod,
-            "vDesc",
-            $std->vDesc,
-            $std->vDesc ? true : false,
-            $identificador . "[item $std->item] Valor do Desconto"
-        );
-        $this->dom->addChild(
-            $prod,
-            "vOutro",
-            $std->vOutro,
-            false,
-            $identificador . "[item $std->item] Outras despesas acessórias"
-        );
-        $this->dom->addChild(
-            $prod,
-            "indTot",
-            $std->indTot,
-            true,
-            $identificador . "[item $std->item] Indica se valor do Item (vProd) entra no valor total da NF-e (vProd)"
-        );
-        if (!empty($std->xPed) &&  !empty($std->nItemPed)) {
-            $this->dom->addChild(
-                $prod,
-                "xPed",
-                $std->xPed,
-                false,
-                $identificador . "[item $std->item] Número do Pedido de Compra"
-            );
-            $this->dom->addChild(
-                $prod,
-                "nItemPed",
-                $std->nItemPed,
-                false,
-                $identificador . "[item $std->item] Item do Pedido de Compra"
-            );
-        }
-        $this->dom->addChild(
-            $prod,
-            "nFCI",
-            $std->nFCI,
-            false,
-            $identificador . "[item $std->item] Número de controle da FCI "
-                . "Ficha de Conteúdo de Importação"
-        );
-        $this->aProd[$std->item] = $prod;
-        return $prod;
-    }
-
-    /**
-     * NVE NOMENCLATURA DE VALOR ADUANEIRO E ESTATÍSTICA
-     * Podem ser até 8 NVE's por item
+     *cabecalhoDANFE
+     * Monta o cabelhalho da DANFE (retrato e paisagem)
      *
-     * @param stdClass $std
-     *
-     * @return DOMElement|null
+     * @param  number $x      Posição horizontal inicial, canto esquerdo
+     * @param  number $y      Posição vertical inicial, canto superior
+     * @param  number $pag    Número da Página
+     * @param  number $totPag Total de páginas
+     * @return number Posição vertical final
      */
-    public function tagNVE(stdClass $std)
+    protected function pCabecalhoDANFE($x = 0, $y = 0, $pag = '1', $totPag = '1')
     {
-        $possible = ['item', 'NVE'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        if ($std->NVE == '') {
-            return null;
-        }
-        $nve = $this->dom->createElement("NVE", $std->NVE);
-        $this->aNVE[$std->item][] = $nve;
-        return $nve;
-    }
-
-    /**
-     * Código Especificador da Substituição Tributária – CEST,
-     * que identifica a mercadoria sujeita aos regimes de substituição
-     * tributária e de antecipação do recolhimento do imposto.
-     * vide NT2015.003  I05C pai
-     * tag NFe/infNFe/det[item]/prod/CEST (opcional)
-     * NOTA: Ajustado para NT2016_002_v1.30
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function tagCEST(stdClass $std)
-    {
-        $possible = ['item', 'CEST', 'indEscala', 'CNPJFab'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'I05b <ctrltST> - ';
-        $ctrltST = $this->dom->createElement("ctrltST");
-        $this->dom->addChild(
-            $ctrltST,
-            "CEST",
-            Strings::onlyNumbers($std->CEST),
-            true,
-            "$identificador [item $std->item] Numero CEST"
-        );
-        //incluido no layout 4.00
-        $this->dom->addChild(
-            $ctrltST,
-            "indEscala",
-            trim($std->indEscala),
-            false,
-            "$identificador [item $std->item] Indicador de Produção em escala relevante"
-        );
-        //incluido no layout 4.00
-        $this->dom->addChild(
-            $ctrltST,
-            "CNPJFab",
-            Strings::onlyNumbers($std->CNPJFab),
-            false,
-            "$identificador [item $std->item] CNPJ do Fabricante da Mercadoria,"
-            . "obrigatório para produto em escala NÃO relevante."
-        );
-        $this->aCest[$std->item][] = $ctrltST;
-        return $ctrltST;
-    }
-
-    /**
-     * tag NFe/infNFe/det[item]/prod/nRECOPI
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function tagRECOPI(stdClass $std)
-    {
-        $possible = ['item', 'nRECOPI'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $recopi = $this->dom->createElement("nRECOPI", $std->nRECOPI);
-        $this->aRECOPI[$std->item] = $recopi;
-        return $recopi;
-    }
-
-    /**
-     * Declaração de Importação I8 pai I01
-     * tag NFe/infNFe/det[]/prod/DI
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagDI(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'nDI',
-            'dDI',
-            'xLocDesemb',
-            'UFDesemb',
-            'dDesemb',
-            'tpViaTransp',
-            'vAFRMM',
-            'tpIntermedio',
-            'CNPJ',
-            'UFTerceiro',
-            'cExportador'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'I8 <DI> - ';
-        $tDI = $this->dom->createElement("DI");
-        $this->dom->addChild(
-            $tDI,
-            "nDI",
-            $std->nDI,
-            true,
-            $identificador . "[item $std->item] Número do Documento de Importação (DI, DSI, DIRE, ...)"
-        );
-        $this->dom->addChild(
-            $tDI,
-            "dDI",
-            $std->dDI,
-            true,
-            $identificador . "[item $std->item] Data de Registro do documento"
-        );
-        $this->dom->addChild(
-            $tDI,
-            "xLocDesemb",
-            $std->xLocDesemb,
-            true,
-            $identificador . "[item $std->item] Local de desembaraço"
-        );
-        $this->dom->addChild(
-            $tDI,
-            "UFDesemb",
-            $std->UFDesemb,
-            true,
-            $identificador . "[item $std->item] Sigla da UF onde ocorreu o Desembaraço Aduaneiro"
-        );
-        $this->dom->addChild(
-            $tDI,
-            "dDesemb",
-            $std->dDesemb,
-            true,
-            $identificador . "[item $std->item] Data do Desembaraço Aduaneiro"
-        );
-        $this->dom->addChild(
-            $tDI,
-            "tpViaTransp",
-            $std->tpViaTransp,
-            true,
-            $identificador . "[item $std->item] Via de transporte internacional "
-            . "informada na Declaração de Importação (DI)"
-        );
-        $this->dom->addChild(
-            $tDI,
-            "vAFRMM",
-            $std->vAFRMM,
-            false,
-            $identificador . "[item $std->item] Valor da AFRMM "
-            . "- Adicional ao Frete para Renovação da Marinha Mercante"
-        );
-        $this->dom->addChild(
-            $tDI,
-            "tpIntermedio",
-            $std->tpIntermedio,
-            true,
-            $identificador . "[item $std->item] Forma de importação quanto a intermediação"
-        );
-        $this->dom->addChild(
-            $tDI,
-            "CNPJ",
-            $std->CNPJ,
-            false,
-            $identificador . "[item $std->item] CNPJ do adquirente ou do encomendante"
-        );
-        $this->dom->addChild(
-            $tDI,
-            "UFTerceiro",
-            $std->UFTerceiro,
-            false,
-            $identificador . "[item $std->item] Sigla da UF do adquirente ou do encomendante"
-        );
-        $this->dom->addChild(
-            $tDI,
-            "cExportador",
-            $std->cExportador,
-            true,
-            $identificador . "[item $std->item] Código do Exportador"
-        );
-        $this->aDI[$std->item][$std->nDI] = $tDI;
-        return $tDI;
-    }
-
-    /**
-     * Adições I25 pai I18
-     * tag NFe/infNFe/det[]/prod/DI/adi
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagadi(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'nDI',
-            'nAdicao',
-            'nSeqAdic',
-            'cFabricante',
-            'vDescDI',
-            'nDraw'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'I25 <adi> - ';
-        $adi = $this->dom->createElement("adi");
-        $this->dom->addChild(
-            $adi,
-            "nAdicao",
-            $std->nAdicao,
-            true,
-            $identificador . "[item $std->item] Número da Adição"
-        );
-        $this->dom->addChild(
-            $adi,
-            "nSeqAdic",
-            $std->nSeqAdic,
-            true,
-            $identificador . "[item $std->item] Número sequencial do item dentro da Adição"
-        );
-        $this->dom->addChild(
-            $adi,
-            "cFabricante",
-            $std->cFabricante,
-            true,
-            $identificador . "[item $std->item] Código do fabricante estrangeiro"
-        );
-        $this->dom->addChild(
-            $adi,
-            "vDescDI",
-            $std->vDescDI,
-            false,
-            $identificador . "[item $std->item] Valor do desconto do item da DI Adição"
-        );
-        $this->dom->addChild(
-            $adi,
-            "nDraw",
-            $std->nDraw,
-            false,
-            $identificador . "[item $std->item] Número do ato concessório de Drawback"
-        );
-        $this->aAdi[$std->item][$std->nDI][] = $adi;
-        //colocar a adi em seu DI respectivo
-        $nodeDI = $this->aDI[$std->item][$std->nDI];
-        $this->dom->appChild($nodeDI, $adi);
-        $this->aDI[$std->item][$std->nDI] = $nodeDI;
-        return $adi;
-    }
-
-    /**
-     * Grupo de informações de exportação para o item I50 pai I01
-     * tag NFe/infNFe/det[]/prod/detExport
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagdetExport(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'nDraw'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'I50 <detExport> - ';
-        $detExport = $this->dom->createElement("detExport");
-        $this->dom->addChild(
-            $detExport,
-            "nDraw",
-            Strings::onlyNumbers($std->nDraw),
-            false,
-            $identificador . "[item $std->item] Número do ato concessório de Drawback"
-        );
-        $this->aDetExport[$std->item][] = $detExport;
-        return $detExport;
-    }
-
-    /**
-     * Grupo de informações de exportação para o item I52 pai I52
-     * tag NFe/infNFe/det[]/prod/detExport
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagdetExportInd(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'nRE',
-            'chNFe',
-            'qExport'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'I52 <exportInd> - ';
-        $exportInd = $this->dom->createElement("exportInd");
-        $this->dom->addChild(
-            $exportInd,
-            "nRE",
-            Strings::onlyNumbers($std->nRE),
-            true,
-            $identificador . "[item $std->item] Número do Registro de Exportação"
-        );
-        $this->dom->addChild(
-            $exportInd,
-            "chNFe",
-            Strings::onlyNumbers($std->chNFe),
-            true,
-            $identificador . "[item $std->item] Chave de Acesso da NF-e recebida para exportação"
-        );
-        $this->dom->addChild(
-            $exportInd,
-            "qExport",
-            $std->qExport,
-            true,
-            $identificador . "[item $std->item] Quantidade do item realmente exportado"
-        );
-        //obtem o ultimo detExport
-        $nDE = count($this->aDetExport[$std->item])-1;
-        if ($nDE < 0) {
-            throw new RuntimeException('A TAG detExportInd deve ser criada depois da detExport, pois pertence a ela.');
-        }
-        //$this->aExportInd[$std->item][$nDE][] = $exportInd;
-        //colocar a exportInd em seu DetExport respectivo
-        $nodeDetExport = $this->aDetExport[$std->item][$nDE];
-        $this->dom->appChild($nodeDetExport, $exportInd);
-        $this->aDetExport[$std->item][$nDE] = $nodeDetExport;
-        return $exportInd;
-    }
-
-    /**
-     * Rastreabilidade do produto podem ser até 500 por item TAG I80 pai I01
-     * NOTA: Ajustado para NT2016_002_v1.00
-     * tag NFe/infNFe/det[]/prod/rastro
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagRastro(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'nLote',
-            'qLote',
-            'dFab',
-            'dVal',
-            'cAgreg'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'I80 <rastro> - ';
-        $rastro = $this->dom->createElement("rastro");
-        $this->dom->addChild(
-            $rastro,
-            "nLote",
-            substr(trim($std->nLote), 0, 20),
-            true,
-            $identificador . "[item $std->item] Número do lote"
-        );
-        $this->dom->addChild(
-            $rastro,
-            "qLote",
-            $this->transformMoney($std->qLote, 3, '.', ''),
-            true,
-            $identificador . "[item $std->item] Quantidade do lote"
-        );
-        $this->dom->addChild(
-            $rastro,
-            "dFab",
-            trim($std->dFab),
-            true,
-            $identificador . "[item $std->item] Data de fabricação"
-        );
-        $this->dom->addChild(
-            $rastro,
-            "dVal",
-            trim($std->dVal),
-            true,
-            $identificador . "[item $std->item] Data da validade"
-        );
-        $this->dom->addChild(
-            $rastro,
-            "cAgreg",
-            Strings::onlyNumbers($std->cAgreg),
-            false,
-            $identificador . "[item $std->item] Código de Agregação"
-        );
-        $this->aRastro[$std->item][] = $rastro;
-        return $rastro;
-    }
-
-    /**
-     * Detalhamento de Veículos novos J01 pai I90
-     * tag NFe/infNFe/det[]/prod/veicProd (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagveicProd(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'tpOp',
-            'chassi',
-            'cCor',
-            'xCor',
-            'pot',
-            'cilin',
-            'pesoL',
-            'pesoB',
-            'nSerie',
-            'tpComb',
-            'nMotor',
-            'CMT',
-            'dist',
-            'anoMod',
-            'anoFab',
-            'tpPint',
-            'tpVeic',
-            'espVeic',
-            'VIN',
-            'condVeic',
-            'cMod',
-            'cCorDENATRAN',
-            'lota',
-            'tpRest'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'J01 <veicProd> - ';
-        $veicProd = $this->dom->createElement("veicProd");
-        $this->dom->addChild(
-            $veicProd,
-            "tpOp",
-            $std->tpOp,
-            true,
-            "$identificador [item $std->item] Tipo da operação do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "chassi",
-            $std->chassi,
-            true,
-            "$identificador [item $std->item] Chassi do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "cCor",
-            $std->cCor,
-            true,
-            "$identificador [item $std->item] Cor do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "xCor",
-            $std->xCor,
-            true,
-            "$identificador [item $std->item] Descrição da Cor do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "pot",
-            $std->pot,
-            true,
-            "$identificador [item $std->item] Potência Motor (CV) do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "cilin",
-            $std->cilin,
-            true,
-            "$identificador [item $std->item] Cilindradas do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "pesoL",
-            $std->pesoL,
-            true,
-            "$identificador [item $std->item] Peso Líquido do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "pesoB",
-            $std->pesoB,
-            true,
-            "$identificador [item $std->item] Peso Bruto do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "nSerie",
-            $std->nSerie,
-            true,
-            "$identificador [item $std->item] Serial (série) do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "tpComb",
-            $std->tpComb,
-            true,
-            "$identificador [item $std->item] Tipo de combustível do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "nMotor",
-            $std->nMotor,
-            true,
-            "$identificador [item $std->item] Número de Motor do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "CMT",
-            $std->CMT,
-            true,
-            "$identificador [item $std->item] Capacidade Máxima de Tração do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "dist",
-            $std->dist,
-            true,
-            "$identificador [item $std->item] Distância entre eixos do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "anoMod",
-            $std->anoMod,
-            true,
-            "$identificador [item $std->item] Ano Modelo de Fabricação do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "anoFab",
-            $std->anoFab,
-            true,
-            "$identificador [item $std->item] Ano de Fabricação do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "tpPint",
-            $std->tpPint,
-            true,
-            "$identificador [item $std->item] Tipo de Pintura do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "tpVeic",
-            $std->tpVeic,
-            true,
-            "$identificador [item $std->item] Tipo de Veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "espVeic",
-            $std->espVeic,
-            true,
-            "$identificador [item $std->item] Espécie de Veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "VIN",
-            $std->VIN,
-            true,
-            "$identificador [item $std->item] Condição do VIN do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "condVeic",
-            $std->condVeic,
-            true,
-            "$identificador [item $std->item] Condição do Veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "cMod",
-            $std->cMod,
-            true,
-            "$identificador [item $std->item] Código Marca Modelo do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "cCorDENATRAN",
-            $std->cCorDENATRAN,
-            true,
-            "$identificador [item $std->item] Código da Cor do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "lota",
-            $std->lota,
-            true,
-            "$identificador [item $std->item] Capacidade máxima de lotação do veículo"
-        );
-        $this->dom->addChild(
-            $veicProd,
-            "tpRest",
-            $std->tpRest,
-            true,
-            "$identificador [item $std->item] Restrição do veículo"
-        );
-        $this->aVeicProd[$std->item] = $veicProd;
-        return $veicProd;
-    }
-
-    /**
-     * Detalhamento de medicamentos K01 pai I90
-     * NOTA: Ajustado para NT2016_002_v1.00
-     * tag NFe/infNFe/det[]/prod/med (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagmed(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'nLote',
-            'qLote',
-            'dFab',
-            'dVal',
-            'vPMC',
-            'cProdANVISA',
-            'xMotivoIsencao'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'K01 <med> - ';
-        $med = $this->dom->createElement("med");
-        //incluso no layout 4.00
-        $this->dom->addChild(
-            $med,
-            "cProdANVISA",
-            $std->cProdANVISA,
-            false,
-            "$identificador [item $std->item] Numero ANVISA"
-        );
-
-        $this->dom->addChild(
-            $med,
-            "xMotivoIsencao",
-            $std->xMotivoIsencao,
-            false,
-            "$identificador [item $std->item] Motivo da isenção da ANVISA"
-        );
-
-        //removido no layout 4.00
-        $this->dom->addChild(
-            $med,
-            "nLote",
-            $std->nLote,
-            false,
-            "$identificador [item $std->item] Número do Lote de medicamentos ou de matérias-primas farmacêuticas"
-        );
-        //removido no layout 4.00
-        $this->dom->addChild(
-            $med,
-            "qLote",
-            $std->qLote,
-            false,
-            "$identificador [item $std->item] Quantidade de produto no Lote de medicamentos "
-            . "ou de matérias-primas farmacêuticas"
-        );
-        //removido no layout 4.00
-        $this->dom->addChild(
-            $med,
-            "dFab",
-            $std->dFab,
-            false,
-            "$identificador [item $std->item] Data de fabricação"
-        );
-        //removido no layout 4.00
-        $this->dom->addChild(
-            $med,
-            "dVal",
-            $std->dVal,
-            false,
-            "$identificador [item $std->item] Data de validade"
-        );
-        $this->dom->addChild(
-            $med,
-            "vPMC",
-            $this->transformMoney($std->vPMC, 2, '.', ''),
-            true,
-            "$identificador [item $std->item] Preço máximo consumidor"
-        );
-        $this->aMed[$std->item] = $med;
-        return $med;
-    }
-
-    /**
-     * Detalhamento de armas L01 pai I90
-     * tag NFe/infNFe/det[]/prod/arma (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagarma(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'nAR',
-            'tpArma',
-            'nSerie',
-            'nCano',
-            'descr'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'L01 <arma> - ';
-        $arma = $this->dom->createElement("arma");
-        $this->dom->addChild(
-            $arma,
-            "tpArma",
-            $std->tpArma,
-            true,
-            "$identificador [item $std->item] Indicador do tipo de arma de fogo"
-        );
-        $this->dom->addChild(
-            $arma,
-            "nSerie",
-            $std->nSerie,
-            true,
-            "$identificador [item $std->item] Número de série da arma"
-        );
-        $this->dom->addChild(
-            $arma,
-            "nCano",
-            $std->nCano,
-            true,
-            "$identificador [item $std->item] Número de série do cano"
-        );
-        $this->dom->addChild(
-            $arma,
-            "descr",
-            $std->descr,
-            true,
-            "$identificador [item $std->item] Descrição completa da arma, compreendendo: calibre, marca, capacidade, "
-            . "tipo de funcionamento, comprimento e demais elementos que "
-            . "permitam a sua perfeita identificação."
-        );
-        $this->aArma[$std->item][$std->nAR] = $arma;
-        return $arma;
-    }
-
-    /**
-     * Detalhamento de combustiveis L101 pai I90
-     * tag NFe/infNFe/det[]/prod/comb (opcional)
-     * LA|cProdANP|pMixGN|CODIF|qTemp|UFCons|
-     *
-     * NOTA: Ajustado para NT2016_002_v1.30
-     * LA|cProdANP|descANP|pGLP|pGNn|pGNi|vPart|CODIF|qTemp|UFCons|
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagcomb(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'cProdANP',
-            'pMixGN',
-            'descANP',
-            'pGLP',
-            'pGNn',
-            'pGNi',
-            'vPart',
-            'CODIF',
-            'qTemp',
-            'UFCons',
-            'qBCProd',
-            'vAliqProd',
-            'vCIDE'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'L101 <comb> - ';
-        $comb = $this->dom->createElement("comb");
-        $this->dom->addChild(
-            $comb,
-            "cProdANP",
-            $std->cProdANP,
-            true,
-            "$identificador [item $std->item] Código de produto da ANP"
-        );
-        //removido do layout 4.00
-        $this->dom->addChild(
-            $comb,
-            "pMixGN",
-            $std->pMixGN,
-            false,
-            "$identificador [item $std->item] Percentual de Gás Natural para o produto GLP (cProdANP=210203001)"
-        );
-        //incluso no layout 4.00
-        $this->dom->addChild(
-            $comb,
-            "descANP",
-            $std->descANP,
-            false,
-            "$identificador [item $std->item] Utilizar a descrição de produtos do "
-            . "Sistema de Informações de Movimentação de Produtos - "
-            . "SIMP (http://www.anp.gov.br/simp/"
-        );
-        //incluso no layout 4.00
-        $this->dom->addChild(
-            $comb,
-            "pGLP",
-            $std->pGLP,
-            false,
-            "$identificador [item $std->item] Percentual do GLP derivado do "
-            . "petróleo no produto GLP (cProdANP=210203001) 1v4"
-        );
-        //incluso no layout 4.00
-        $this->dom->addChild(
-            $comb,
-            "pGNn",
-            $std->pGNn,
-            false,
-            "$identificador [item $std->item] Percentual de Gás Natural Nacional"
-            . " – GLGNn para o produto GLP (cProdANP=210203001) 1v4"
-        );
-        //incluso no layout 4.00
-        $this->dom->addChild(
-            $comb,
-            "pGNi",
-            $std->pGNi,
-            false,
-            "$identificador [item $std->item] Percentual de Gás Natural Importado"
-            . " – GLGNi para o produto GLP (cProdANP=210203001) 1v4"
-        );
-        //incluso no layout 4.00
-        $std->vPart = !empty($std->vPart) ? $std->vPart : null;
-        $this->dom->addChild(
-            $comb,
-            "vPart",
-            $std->vPart,
-            false,
-            "$identificador [item $std->item] Valor de partida (cProdANP=210203001) "
-        );
-        $this->dom->addChild(
-            $comb,
-            "CODIF",
-            $std->CODIF,
-            false,
-            "[item $std->item] Código de autorização / registro do CODIF"
-        );
-        $this->dom->addChild(
-            $comb,
-            "qTemp",
-            $std->qTemp,
-            false,
-            "$identificador [item $std->item] Quantidade de combustível faturada à temperatura ambiente."
-        );
-        $this->dom->addChild(
-            $comb,
-            "UFCons",
-            $std->UFCons,
-            true,
-            "[item $std->item] Sigla da UF de consumo"
-        );
-        if ($std->qBCProd != "") {
-            $tagCIDE = $this->dom->createElement("CIDE");
-            $this->dom->addChild(
-                $tagCIDE,
-                "qBCProd",
-                $std->qBCProd,
-                true,
-                "$identificador [item $std->item] BC da CIDE"
-            );
-            $this->dom->addChild(
-                $tagCIDE,
-                "vAliqProd",
-                $std->vAliqProd,
-                true,
-                "$identificador [item $std->item] Valor da alíquota da CIDE"
-            );
-            $this->dom->addChild(
-                $tagCIDE,
-                "vCIDE",
-                $std->vCIDE,
-                true,
-                "$identificador [item $std->item] Valor da CIDE"
-            );
-            $this->dom->appChild($comb, $tagCIDE);
-        }
-        $this->aComb[$std->item] = $comb;
-        return $comb;
-    }
-
-    /**
-     * informações relacionadas com as operações de combustíveis, subgrupo de
-     * encerrante que permite o controle sobre as operações de venda de combustíveis
-     * LA11 pai LA01
-     * tag NFe/infNFe/det[]/prod/comb/encerrante (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagencerrante(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'nBico',
-            'nBomba',
-            'nTanque',
-            'vEncIni',
-            'vEncFin'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $identificador = 'LA11 <encerrante> - ';
-        $encerrante = $this->dom->createElement("encerrante");
-        $this->dom->addChild(
-            $encerrante,
-            "nBico",
-            $std->nBico,
-            true,
-            "$identificador [item $std->item] Número de identificação do bico utilizado no abastecimento"
-        );
-        $this->dom->addChild(
-            $encerrante,
-            "nBomba",
-            $std->nBomba,
-            false,
-            "$identificador [item $std->item] Número de identificação da bomba ao qual o bico está interligado"
-        );
-        $this->dom->addChild(
-            $encerrante,
-            "nTanque",
-            $std->nTanque,
-            true,
-            "$identificador [item $std->item] Número de identificação do tanque ao qual o bico está interligado"
-        );
-        $this->dom->addChild(
-            $encerrante,
-            "vEncIni",
-            $std->vEncIni,
-            true,
-            "$identificador [item $std->item] Valor do Encerrante no início do abastecimento"
-        );
-        $this->dom->addChild(
-            $encerrante,
-            "vEncFin",
-            $std->vEncFin,
-            true,
-            "$identificador [item $std->item] Valor do Encerrante no final do abastecimento"
-        );
-        $this->aEncerrante[$std->item] = $encerrante;
-        return $encerrante;
-    }
-
-    /**
-     * Impostos com o valor total tributado M01 pai H01
-     * tag NFe/infNFe/det[]/imposto
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagimposto(stdClass $std)
-    {
-        $possible = ['item', 'vTotTrib'];
-        $std = $this->equilizeParameters($std, $possible);
-
-        //totalizador dos valores dos itens
-        try{
-            $this->stdTot->vTotTrib += (float) $std->vTotTrib;
-        } catch(\Exception $e){
-
-        }
-
-        $identificador = 'M01 <imposto> - ';
-        $imposto = $this->dom->createElement("imposto");
-        $this->dom->addChild(
-            $imposto,
-            "vTotTrib",
-            $std->vTotTrib,
-            false,
-            "$identificador [item $std->item] Valor aproximado total de tributos federais, estaduais e municipais."
-        );
-        $this->aImposto[$std->item] = $imposto;
-        return $imposto;
-    }
-
-    /**
-     * Informações do ICMS da Operação própria e ST N01 pai M01
-     * tag NFe/infNFe/det[]/imposto/ICMS
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagICMS(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'orig',
-            'CST',
-            'modBC',
-            'vBC',
-            'pICMS',
-            'vICMS',
-            'pFCP',
-            'vFCP',
-            'vBCFCP',
-            'modBCST',
-            'pMVAST',
-            'pRedBCST',
-            'vBCST',
-            'pICMSST',
-            'vICMSST',
-            'vBCFCPST',
-            'pFCPST',
-            'vFCPST',
-            'vICMSDeson',
-            'motDesICMS',
-            'pRedBC',
-            'vICMSOp',
-            'pDif',
-            'vICMSDif',
-            'vBCSTRet',
-            'pST',
-            'vICMSSTRet',
-            'vBCFCPSTRet',
-            'pFCPSTRet',
-            'vFCPSTRet',
-            'pRedBCEfet',
-            'vBCEfet',
-            'pICMSEfet',
-            'vICMSEfet',
-            'vICMSSubstituto'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-        //totalizador
-
-        try{
-
-            $this->stdTot->vBC += (float) !empty($std->vBC) ? $std->vBC : 0;
-            $this->stdTot->vICMS += (float) !empty($std->vICMS) ? $std->vICMS : 0;
-            $this->stdTot->vICMSDeson += (float) !empty($std->vICMSDeson) ? $std->vICMSDeson : 0;
-            $this->stdTot->vBCST += (float) !empty($std->vBCST) ? $std->vBCST : 0;
-            $this->stdTot->vST += (float) !empty($std->vICMSST) ? $std->vICMSST : 0;
-    
-            $this->stdTot->vFCP += (float) !empty($std->vFCP) ? $std->vFCP : 0;
-            $this->stdTot->vFCPST += (float) !empty($std->vFCPST) ? $std->vFCPST : 0;
-            $this->stdTot->vFCPSTRet += (float) !empty($std->vFCPSTRet) ? $std->vFCPSTRet : 0;
-        } catch(\Exception $e){
-
-        }
-
-        $identificador = 'N01 <ICMSxx> - ';
-        switch ($std->CST) {
-            case '00':
-
-                $this->stdTot->vBC += (float) !empty($std->vBC) ? $std->vBC : 0;
-                $this->stdTot->vICMS += (float) !empty($std->vICMS) ? $std->vICMS : 0;
-
-                $icms = $this->dom->createElement("ICMS00");
-                $this->dom->addChild(
-                    $icms,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "$identificador [item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "$identificador [item $std->item] Tributação do ICMS = 00"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'modBC',
-                    $std->modBC,
-                    true,
-                    "$identificador [item $std->item] Modalidade de determinação da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBC',
-                    $std->vBC,
-                    true,
-                    "$identificador [item $std->item] Valor da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMS',
-                    $std->pICMS,
-                    true,
-                    "$identificador [item $std->item] Alíquota do imposto"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMS',
-                    $std->vICMS,
-                    true,
-                    "$identificador [item $std->item] Valor do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCP',
-                    $std->pFCP,
-                    false,
-                    "$identificador [item $std->item] Percentual do Fundo de "
-                        . "Combate à Pobreza (FCP)"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCP',
-                    $std->vFCP,
-                    false,
-                    "$identificador [item $std->item] Valor do Fundo de Combate "
-                        . "à Pobreza (FCP)"
-                );
-                break;
-            case '10':
-                
-                $this->stdTot->vBC += (float) !empty($std->vBC) ? $std->vBC : 0;
-                $this->stdTot->vICMS += (float) !empty($std->vICMS) ? $std->vICMS : 0;
-                $this->stdTot->vBCST += (float) !empty($std->vBCST) ? $std->vBCST : 0;
-                $this->stdTot->vST += (float) !empty($std->vICMSST) ? $std->vICMSST : 0;
-                
-                $icms = $this->dom->createElement("ICMS10");
-                $this->dom->addChild(
-                    $icms,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "$identificador [item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "$identificador [item $std->item] Tributação do ICMS = 10"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'modBC',
-                    $std->modBC,
-                    true,
-                    "$identificador [item $std->item] Modalidade de determinação da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBC',
-                    $std->vBC,
-                    true,
-                    "$identificador [item $std->item] Valor da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMS',
-                    $std->pICMS,
-                    true,
-                    "$identificador [item $std->item] Alíquota do imposto"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMS',
-                    $std->vICMS,
-                    true,
-                    "$identificador [item $std->item] Valor do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCFCP',
-                    $std->vBCFCP,
-                    false,
-                    "$identificador [item $std->item] Valor da Base de Cálculo do FCP"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCP',
-                    $std->pFCP,
-                    false,
-                    "$identificador [item $std->item] Percentual do Fundo de "
-                        . "Combate à Pobreza (FCP)"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCP',
-                    $std->vFCP,
-                    false,
-                    "$identificador [item $std->item] Valor do FCP"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'modBCST',
-                    $std->modBCST,
-                    true,
-                    "$identificador [item $std->item] Modalidade de determinação da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pMVAST',
-                    $std->pMVAST,
-                    false,
-                    "$identificador [item $std->item] Percentual da margem de valor Adicionado do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pRedBCST',
-                    $std->pRedBCST,
-                    false,
-                    "$identificador [item $std->item] Percentual da Redução de BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCST',
-                    $std->vBCST,
-                    true,
-                    "$identificador [item $std->item] Valor da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMSST',
-                    $std->pICMSST,
-                    true,
-                    "$identificador [item $std->item] Alíquota do imposto do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSST',
-                    $std->vICMSST,
-                    true,
-                    "$identificador [item $std->item] Valor do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCFCPST',
-                    $std->vBCFCPST,
-                    false,
-                    "$identificador [item $std->item] Valor da Base de Cálculo do FCP ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCPST',
-                    $std->pFCPST,
-                    false,
-                    "$identificador [item $std->item] Percentual do Fundo de "
-                        . "Combate à Pobreza (FCP) ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCPST',
-                    $std->vFCPST,
-                    false,
-                    "$identificador [item $std->item] Valor do FCP ST"
-                );
-                break;
-            case '20':
-                $this->stdTot->vBC += (float) !empty($std->vBC) ? $std->vBC : 0;
-                $this->stdTot->vICMS += (float) !empty($std->vICMS) ? $std->vICMS : 0;
-
-                $icms = $this->dom->createElement("ICMS20");
-                $this->dom->addChild(
-                    $icms,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "$identificador [item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "$identificador [item $std->item] Tributação do ICMS = 20"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'modBC',
-                    $std->modBC,
-                    true,
-                    "$identificador [item $std->item] Modalidade de determinação da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pRedBC',
-                    $std->pRedBC,
-                    true,
-                    "$identificador [item $std->item] Percentual da Redução de BC"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBC',
-                    $std->vBC,
-                    true,
-                    "$identificador [item $std->item] Valor da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMS',
-                    $std->pICMS,
-                    true,
-                    "$identificador [item $std->item] Alíquota do imposto"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMS',
-                    $std->vICMS,
-                    true,
-                    "$identificador [item $std->item] Valor do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCFCP',
-                    $std->vBCFCP,
-                    false,
-                    "$identificador [item $std->item] Valor da Base de Cálculo do FCP"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCP',
-                    $std->pFCP,
-                    false,
-                    "$identificador [item $std->item] Percentual do Fundo de "
-                        . "Combate à Pobreza (FCP)"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCP',
-                    $std->vFCP,
-                    false,
-                    "$identificador [item $std->item] Valor do FCP"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSDeson',
-                    $std->vICMSDeson == 0.00 ? '' : $std->vICMSDeson,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS desonerado"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'motDesICMS',
-                    $std->motDesICMS,
-                    false,
-                    "$identificador [item $std->item] Motivo da desoneração do ICMS"
-                );
-                break;
-            case '30':
-                $this->stdTot->vBCST += (float) !empty($std->vBCST) ? $std->vBCST : 0;
-                $this->stdTot->vST += (float) !empty($std->vICMSST) ? $std->vICMSST : 0;
-
-                $icms = $this->dom->createElement("ICMS30");
-                $this->dom->addChild(
-                    $icms,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "$identificador [item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "$identificador [item $std->item] Tributação do ICMS = 30"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'modBCST',
-                    $std->modBCST,
-                    true,
-                    "$identificador [item $std->item] Modalidade de determinação da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pMVAST',
-                    $std->pMVAST,
-                    false,
-                    "$identificador [item $std->item] Percentual da margem de valor Adicionado do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pRedBCST',
-                    $std->pRedBCST,
-                    false,
-                    "$identificador [item $std->item] Percentual da Redução de BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCST',
-                    $std->vBCST,
-                    true,
-                    "$identificador [item $std->item] Valor da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMSST',
-                    $std->pICMSST,
-                    true,
-                    "$identificador [item $std->item] Alíquota do imposto do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSST',
-                    $std->vICMSST,
-                    true,
-                    "$identificador [item $std->item] Valor do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCFCPST',
-                    $std->vBCFCPST,
-                    false,
-                    "$identificador [item $std->item] Valor da Base de Cálculo do FCP ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCPST',
-                    $std->pFCPST,
-                    false,
-                    "$identificador [item $std->item] Percentual do Fundo de "
-                        . "Combate à Pobreza (FCP) ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCPST',
-                    $std->vFCPST,
-                    false,
-                    "$identificador [item $std->item] Valor do FCP ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSDeson',
-                    $std->vICMSDeson == 0.00 ? '' : $std->vICMSDeson,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS desonerado"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'motDesICMS',
-                    $std->motDesICMS,
-                    false,
-                    "$identificador [item $std->item] Motivo da desoneração do ICMS"
-                );
-                break;
-            case '40':
-            case '41':
-            case '50':
-                $icms = $this->dom->createElement("ICMS40");
-                $this->dom->addChild(
-                    $icms,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "$identificador [item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "$identificador [item $std->item] Tributação do ICMS $std->CST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSDeson',
-                    $std->vICMSDeson == 0.00 ? '' : $std->vICMSDeson,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS desonerado"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'motDesICMS',
-                    $std->motDesICMS,
-                    false,
-                    "$identificador [item $std->item] Motivo da desoneração do ICMS"
-                );
-                break;
-            case '51':
-                $this->stdTot->vBC += (float) !empty($std->vBC) ? $std->vBC : 0;
-                $this->stdTot->vICMS += (float) !empty($std->vICMS) ? $std->vICMS : 0;
-
-                $icms = $this->dom->createElement("ICMS51");
-                $this->dom->addChild(
-                    $icms,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "$identificador [item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "$identificador [item $std->item] Tributação do ICMS = 51"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'modBC',
-                    $std->modBC,
-                    false,
-                    "$identificador [item $std->item] Modalidade de determinação da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pRedBC',
-                    $std->pRedBC,
-                    false,
-                    "$identificador [item $std->item] Percentual da Redução de BC"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBC',
-                    $std->vBC,
-                    false,
-                    "$identificador [item $std->item] Valor da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMS',
-                    $std->pICMS,
-                    false,
-                    "$identificador [item $std->item] Alíquota do imposto"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSOp',
-                    $std->vICMSOp,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS da Operação"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pDif',
-                    $std->pDif,
-                    false,
-                    "$identificador [item $std->item] Percentual do diferimento"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSDif',
-                    $std->vICMSDif,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS diferido"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMS',
-                    $std->vICMS,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS realmente devido"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCFCP',
-                    $std->vBCFCP,
-                    false,
-                    "$identificador [item $std->item] Valor da Base de Cálculo do FCP"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCP',
-                    $std->pFCP,
-                    false,
-                    "$identificador [item $std->item] Percentual do Fundo de "
-                        . "Combate à Pobreza (FCP)"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCP',
-                    $std->vFCP,
-                    false,
-                    "$identificador [item $std->item] Valor do FCP"
-                );
-                break;
-            case '60':
-                $icms = $this->dom->createElement("ICMS60");
-                $this->dom->addChild(
-                    $icms,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "$identificador [item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "$identificador [item $std->item] Tributação do ICMS = 60"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCSTRet',
-                    $std->vBCSTRet,
-                    false,
-                    "$identificador [item $std->item] Valor da BC do ICMS ST retido"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pST',
-                    $std->pST,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS ST retido"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSSubstituto',
-                    $std->vICMSSubstituto,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS próprio do Substituto"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSSTRet',
-                    $std->vICMSSTRet,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS ST retido"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCFCPSTRet',
-                    $std->vBCFCPSTRet,
-                    false,
-                    "$identificador [item $std->item] Valor da Base de Cálculo "
-                        . "do FCP retido anteriormente por ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCPSTRet',
-                    $std->pFCPSTRet,
-                    false,
-                    "$identificador [item $std->item] Percentual do FCP retido "
-                        . "anteriormente por Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCPSTRet',
-                    $std->vFCPSTRet,
-                    false,
-                    "$identificador [item $std->item] Valor do FCP retido por "
-                        . "Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pRedBCEfet',
-                    $std->pRedBCEfet,
-                    false,
-                    "$identificador [item $std->item] Percentual de redução "
-                        . "para obtenção da base de cálculo efetiva (vBCEfet)"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCEfet',
-                    $std->vBCEfet,
-                    false,
-                    "$identificador [item $std->item] base de calculo efetiva"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMSEfet',
-                    $std->pICMSEfet,
-                    false,
-                    "$identificador [item $std->item] Alíquota do ICMS na operação a consumidor final"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSEfet',
-                    $std->vICMSEfet,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS efetivo"
-                );
-                break;
-            case '70':
-                $this->stdTot->vBC += (float) !empty($std->vBC) ? $std->vBC : 0;
-                $this->stdTot->vICMS += (float) !empty($std->vICMS) ? $std->vICMS : 0;
-                $this->stdTot->vBCST += (float) !empty($std->vBCST) ? $std->vBCST : 0;
-                $this->stdTot->vST += (float) !empty($std->vICMSST) ? $std->vICMSST : 0;
-
-                $icms = $this->dom->createElement("ICMS70");
-                $this->dom->addChild(
-                    $icms,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "$identificador [item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "$identificador [item $std->item] Tributação do ICMS = 70"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'modBC',
-                    $std->modBC,
-                    true,
-                    "$identificador [item $std->item] Modalidade de determinação da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pRedBC',
-                    $std->pRedBC,
-                    true,
-                    "$identificador [item $std->item] Percentual da Redução de BC"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBC',
-                    $std->vBC,
-                    true,
-                    "$identificador [item $std->item] Valor da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMS',
-                    $std->pICMS,
-                    true,
-                    "$identificador [item $std->item] Alíquota do imposto"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMS',
-                    $std->vICMS,
-                    true,
-                    "$identificador [item $std->item] Valor do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCFCP',
-                    $std->vBCFCP,
-                    false,
-                    "$identificador [item $std->item] Valor da Base de Cálculo do FCP"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCP',
-                    $std->pFCP,
-                    false,
-                    "$identificador [item $std->item] Percentual do Fundo de "
-                        . "Combate à Pobreza (FCP)"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCP',
-                    $std->vFCP,
-                    false,
-                    "$identificador [item $std->item] Valor do FCP"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'modBCST',
-                    $std->modBCST,
-                    true,
-                    "$identificador [item $std->item] Modalidade de determinação da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pMVAST',
-                    $std->pMVAST,
-                    false,
-                    "$identificador [item $std->item] Percentual da margem de valor Adicionado do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pRedBCST',
-                    $std->pRedBCST,
-                    false,
-                    "$identificador [item $std->item] Percentual da Redução de BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCST',
-                    $std->vBCST,
-                    true,
-                    "$identificador [item $std->item] Valor da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMSST',
-                    $std->pICMSST,
-                    true,
-                    "$identificador [item $std->item] Alíquota do imposto do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSST',
-                    $std->vICMSST,
-                    true,
-                    "$identificador [item $std->item] Valor do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCFCPST',
-                    $std->vBCFCPST,
-                    false,
-                    "$identificador [item $std->item] Valor da Base de Cálculo do FCP ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCPST',
-                    $std->pFCPST,
-                    false,
-                    "$identificador [item $std->item] Percentual do Fundo de "
-                        . "Combate à Pobreza (FCP) ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCPST',
-                    $std->vFCPST,
-                    false,
-                    "$identificador [item $std->item] Valor do FCP ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSDeson',
-                    $std->vICMSDeson == 0.00 ? '' : $std->vICMSDeson,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS desonerado"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'motDesICMS',
-                    $std->motDesICMS,
-                    false,
-                    "$identificador [item $std->item] Motivo da desoneração do ICMS"
-                );
-                break;
-            case '90':
-
-                $this->stdTot->vBC += (float) !empty($std->vBC) ? $std->vBC : 0;
-                $this->stdTot->vICMS += (float) !empty($std->vICMS) ? $std->vICMS : 0;
-                $this->stdTot->vBCST += (float) !empty($std->vBCST) ? $std->vBCST : 0;
-                $this->stdTot->vST += (float) !empty($std->vICMSST) ? $std->vICMSST : 0;
-
-                $icms = $this->dom->createElement("ICMS90");
-                $this->dom->addChild(
-                    $icms,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "$identificador [item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "$identificador [item $std->item] Tributação do ICMS = 90"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'modBC',
-                    $std->modBC,
-                    false,
-                    "$identificador [item $std->item] Modalidade de determinação da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBC',
-                    $std->vBC,
-                    false,
-                    "$identificador [item $std->item] Valor da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pRedBC',
-                    $std->pRedBC,
-                    false,
-                    "$identificador [item $std->item] Percentual da Redução de BC"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMS',
-                    $std->pICMS,
-                    false,
-                    "$identificador [item $std->item] Alíquota do imposto"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMS',
-                    $std->vICMS,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCFCP',
-                    $std->vBCFCP,
-                    false,
-                    "$identificador [item $std->item] Valor da Base de Cálculo do FCP"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCP',
-                    $std->pFCP,
-                    false,
-                    "$identificador [item $std->item] Percentual do Fundo de "
-                        . "Combate à Pobreza (FCP)"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCP',
-                    $std->vFCP,
-                    false,
-                    "$identificador [item $std->item] Valor do FCP"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'modBCST',
-                    $std->modBCST,
-                    false,
-                    "$identificador [item $std->item] Modalidade de determinação da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pMVAST',
-                    $std->pMVAST,
-                    false,
-                    "$identificador [item $std->item] Percentual da margem de valor Adicionado do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pRedBCST',
-                    $std->pRedBCST,
-                    false,
-                    "$identificador [item $std->item] Percentual da Redução de BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCST',
-                    $std->vBCST,
-                    false,
-                    "$identificador [item $std->item] Valor da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pICMSST',
-                    $std->pICMSST,
-                    false,
-                    "$identificador [item $std->item] Alíquota do imposto do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSST',
-                    $std->vICMSST,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vBCFCPST',
-                    $std->vBCFCPST,
-                    false,
-                    "$identificador [item $std->item] Valor da Base de Cálculo do FCP ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'pFCPST',
-                    $std->pFCPST,
-                    false,
-                    "$identificador [item $std->item] Percentual do Fundo de "
-                        . "Combate à Pobreza (FCP) ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vFCPST',
-                    $std->vFCPST,
-                    false,
-                    "$identificador [item $std->item] Valor do FCP ST"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'vICMSDeson',
-                    $std->vICMSDeson == 0.00 ? '' : $std->vICMSDeson,
-                    false,
-                    "$identificador [item $std->item] Valor do ICMS desonerado"
-                );
-                $this->dom->addChild(
-                    $icms,
-                    'motDesICMS',
-                    $std->motDesICMS,
-                    false,
-                    "$identificador [item $std->item] Motivo da desoneração do ICMS"
-                );
-                break;
-        }
-        $tagIcms = $this->dom->createElement('ICMS');
-        if (isset($icms)) {
-            $tagIcms->appendChild($icms);
-        }
-        $this->aICMS[$std->item] = $tagIcms;
-        return $tagIcms;
-    }
-
-    /**
-     * Grupo de Partilha do ICMS entre a UF de origem e UF de destino ou
-     * a UF definida na legislação. N10a pai N01
-     * tag NFe/infNFe/det[]/imposto/ICMS/ICMSPart
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagICMSPart(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'orig',
-            'CST',
-            'modBC',
-            'vBC',
-            'pRedBC',
-            'pICMS',
-            'vICMS',
-            'modBCST',
-            'pMVAST',
-            'pRedBCST',
-            'vBCST',
-            'pICMSST',
-            'vICMSST',
-            'pBCOp',
-            'UFST'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $icmsPart = $this->dom->createElement("ICMSPart");
-        $this->dom->addChild(
-            $icmsPart,
-            'orig',
-            $std->orig,
-            true,
-            "[item $std->item] Origem da mercadoria"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'CST',
-            $std->CST,
-            true,
-            "[item $std->item] Tributação do ICMS 10 ou 90"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'modBC',
-            $std->modBC,
-            true,
-            "[item $std->item] Modalidade de determinação da BC do ICMS"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'vBC',
-            $std->vBC,
-            true,
-            "[item $std->item] Valor da BC do ICMS"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'pRedBC',
-            $std->pRedBC,
-            false,
-            "[item $std->item] Percentual da Redução de BC"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'pICMS',
-            $std->pICMS,
-            true,
-            "[item $std->item] Alíquota do imposto"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'vICMS',
-            $std->vICMS,
-            true,
-            "[item $std->item] Valor do ICMS"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'modBCST',
-            $std->modBCST,
-            true,
-            "[item $std->item] Modalidade de determinação da BC do ICMS ST"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'pMVAST',
-            $std->pMVAST,
-            false,
-            "[item $std->item] Percentual da margem de valor Adicionado do ICMS ST"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'pRedBCST',
-            $std->pRedBCST,
-            false,
-            "[item $std->item] Percentual da Redução de BC do ICMS ST"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'vBCST',
-            $std->vBCST,
-            true,
-            "[item $std->item] Valor da BC do ICMS ST"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'pICMSST',
-            $std->pICMSST,
-            true,
-            "[item $std->item] Alíquota do imposto do ICMS ST"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'vICMSST',
-            $std->vICMSST,
-            true,
-            "[item $std->item] Valor do ICMS ST"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'pBCOp',
-            $std->pBCOp,
-            true,
-            "[item $std->item] Percentual da BC operação própria"
-        );
-        $this->dom->addChild(
-            $icmsPart,
-            'UFST',
-            $std->UFST,
-            true,
-            "[item $std->item] UF para qual é devido o ICMS ST"
-        );
-        //caso exista a tag aICMS[$std->item] inserir nela caso contrario criar
-        if (!empty($this->aICMS[$std->item])) {
-            $tagIcms = $this->aICMS[$std->item];
+        $oldX = $x;
+        $oldY = $y;
+        if ($this->orientacao == 'P') {
+              $maxW = $this->wPrint;
         } else {
-            $tagIcms = $this->dom->createElement('ICMS');
-        }
-        $this->dom->appChild($tagIcms, $icmsPart, "Inserindo ICMSPart em ICMS[$std->item]");
-        $this->aICMS[$std->item] = $tagIcms;
-        return $tagIcms;
-    }
-
-    /**
-     * Grupo de Repasse de ICMSST retido anteriormente em operações
-     * interestaduais com repasses através do Substituto Tributário
-     * tag NFe/infNFe/det[]/imposto/ICMS/ICMSST N10b pai N01
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagICMSST(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'orig',
-            'CST',
-            'vBCSTRet',
-            'vICMSSTRet',
-            'vBCSTDest',
-            'vICMSSTDest',
-            'vBCFCPSTRet',
-            'pFCPSTRet',
-            'vFCPSTRet',
-            'pST',
-            'vICMSSubstituto',
-            'pRedBCEfet',
-            'vBCEfet',
-            'pICMSEfet',
-            'vICMSEfet'
-        ];
-
-        $std = $this->equilizeParameters($std, $possible);
-        $icmsST = $this->dom->createElement("ICMSST");
-        $this->dom->addChild(
-            $icmsST,
-            'orig',
-            $std->orig,
-            true,
-            "[item $std->item] Origem da mercadoria"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'CST',
-            $std->CST,
-            true,
-            "[item $std->item] Tributação do ICMS 41 ou 60"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'vBCSTRet',
-            $std->vBCSTRet,
-            true,
-            "[item $std->item] Valor do BC do ICMS ST retido na UF remetente"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'pST',
-            $std->pST,
-            false,
-            "[item $std->item] Alíquota suportada pelo Consumidor Final"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'vICMSSubstituto',
-            $std->vICMSSubstituto,
-            false,
-            "[item $std->item] Valor do ICMS próprio do Substituto"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'vICMSSTRet',
-            $std->vICMSSTRet,
-            true,
-            "[item $std->item] Valor do ICMS ST retido na UF remetente"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'vBCFCPSTRet',
-            $std->vBCFCPSTRet,
-            false,
-            "[item $std->item] Valor da Base de Cálculo do FCP"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'pFCPSTRet',
-            $std->pFCPSTRet,
-            false,
-            "[item $std->item] Percentual do FCP retido"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'vFCPSTRet',
-            $std->vFCPSTRet,
-            false,
-            "[item $std->item] Valor do FCP retido"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'vBCSTDest',
-            $std->vBCSTDest,
-            true,
-            "[item $std->item] Valor da BC do ICMS ST da UF destino"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'vICMSSTDest',
-            $std->vICMSSTDest,
-            true,
-            "[item $std->item] Valor do ICMS ST da UF destino"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'pRedBCEfet',
-            $std->pRedBCEfet,
-            false,
-            "[item $std->item] Percentual de redução da base de cálculo efetiva"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'vBCEfet',
-            $std->vBCEfet,
-            false,
-            "[item $std->item] Valor da base de cálculo efetiva"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'pICMSEfet',
-            $std->pICMSEfet,
-            false,
-            "[item $std->item] Alíquota do ICMS efetiva"
-        );
-        $this->dom->addChild(
-            $icmsST,
-            'vICMSEfet',
-            $std->vICMSEfet,
-            false,
-            "[item $std->item] Valor do ICMS efetivo"
-        );
-        //caso exista a tag aICMS[$std->item] inserir nela caso contrario criar
-        if (!empty($this->aICMS[$std->item])) {
-            $tagIcms = $this->aICMS[$std->item];
-        } else {
-            $tagIcms = $this->dom->createElement('ICMS');
-        }
-        $this->dom->appChild($tagIcms, $icmsST, "Inserindo ICMSST em ICMS[$std->item]");
-        $this->aICMS[$std->item] = $tagIcms;
-        return $tagIcms;
-    }
-
-    /**
-     * Tributação ICMS pelo Simples Nacional N10c pai N01
-     * tag NFe/infNFe/det[]/imposto/ICMS/ICMSSN N10c pai N01
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagICMSSN(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'orig',
-            'CSOSN',
-            'pCredSN',
-            'vCredICMSSN',
-            'modBCST',
-            'pMVAST',
-            'pRedBCST',
-            'vBCST',
-            'pICMSST',
-            'vICMSST',
-            'vBCFCPST',
-            'pFCPST',
-            'vFCPST',
-            'vBCSTRet',
-            'pST',
-            'vICMSSTRet',
-            'vBCFCPSTRet',
-            'pFCPSTRet',
-            'vFCPSTRet',
-            'modBC',
-            'vBC',
-            'pRedBC',
-            'pICMS',
-            'vICMS',
-            'pRedBCEfet',
-            'vBCEfet',
-            'pICMSEfet',
-            'vICMSEfet',
-            'vICMSSubstituto'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        //totalizador
-
-        try{
-            $this->stdTot->vBC += (float) $std->vBC;
-            $this->stdTot->vICMS += (float) $std->vICMS;
-            $this->stdTot->vBCST += (float) $std->vBCST;
-            $this->stdTot->vST += (float) $std->vICMSST;
-            $this->stdTot->vFCPST += (float) !empty($std->vFCPST) ? $std->vFCPST : 0;
-            $this->stdTot->vFCPSTRet += (float) !empty($std->vFCPST) ? $std->vFCPSTRet : 0;
-        } catch (\Exception $e){
-
-        }
-
-        switch ($std->CSOSN) {
-            case '101':
-                $icmsSN = $this->dom->createElement("ICMSSN101");
-                $this->dom->addChild(
-                    $icmsSN,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "[item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'CSOSN',
-                    $std->CSOSN,
-                    true,
-                    "[item $std->item] Código de Situação da Operação Simples Nacional"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pCredSN',
-                    $std->pCredSN,
-                    true,
-                    "[item $std->item] Alíquota aplicável de cálculo do crédito (Simples Nacional)."
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vCredICMSSN',
-                    $std->vCredICMSSN,
-                    true,
-                    "[item $std->item] Valor crédito do ICMS que pode ser aproveitado nos termos do"
-                    . " art. 23 da LC 123 (Simples Nacional)"
-                );
-                break;
-            case '102':
-            case '103':
-            case '300':
-            case '400':
-                $icmsSN = $this->dom->createElement("ICMSSN102");
-                $this->dom->addChild(
-                    $icmsSN,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "[item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'CSOSN',
-                    $std->CSOSN,
-                    true,
-                    "[item $std->item] Código de Situação da Operação Simples Nacional"
-                );
-                break;
-            case '201':
-                $icmsSN = $this->dom->createElement("ICMSSN201");
-                $this->dom->addChild(
-                    $icmsSN,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "[item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'CSOSN',
-                    $std->CSOSN,
-                    true,
-                    "[item $std->item] Código de Situação da Operação Simples Nacional"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'modBCST',
-                    $std->modBCST,
-                    true,
-                    "[item $std->item] Alíquota aplicável de cálculo do crédito (Simples Nacional)."
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pMVAST',
-                    $std->pMVAST,
-                    false,
-                    "[item $std->item] Percentual da margem de valor Adicionado do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pRedBCST',
-                    $std->pRedBCST,
-                    false,
-                    "[item $std->item] Percentual da Redução de BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vBCST',
-                    $std->vBCST,
-                    true,
-                    "[item $std->item] Valor da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pICMSST',
-                    $std->pICMSST,
-                    true,
-                    "[item $std->item] Alíquota do imposto do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vICMSST',
-                    $std->vICMSST,
-                    true,
-                    "[item $std->item] Valor do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vBCFCPST',
-                    $std->vBCFCPST,
-                    isset($std->vBCFCPST) ? true : false,
-                    "[item $std->item] Valor da Base de Cálculo do FCP "
-                        . "retido por Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pFCPST',
-                    $std->pFCPST,
-                    isset($std->pFCPST) ? true : false,
-                    "[item $std->item] Percentual do FCP retido por "
-                        . "Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vFCPST',
-                    $std->vFCPST,
-                    isset($std->vFCPST) ? true : false,
-                    "[item $std->item] Valor do FCP retido por Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pCredSN',
-                    $std->pCredSN,
-                    false,
-                    "[item $std->item] Alíquota aplicável de cálculo do crédito (Simples Nacional)."
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vCredICMSSN',
-                    $std->vCredICMSSN,
-                    false,
-                    "[item $std->item] Valor crédito do ICMS que pode ser aproveitado nos "
-                    . "termos do art. 23 da LC 123 (Simples Nacional)"
-                );
-                break;
-            case '202':
-            case '203':
-                $icmsSN = $this->dom->createElement("ICMSSN202");
-                $this->dom->addChild(
-                    $icmsSN,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "[item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'CSOSN',
-                    $std->CSOSN,
-                    true,
-                    "[item $std->item] Código de Situação da Operação Simples Nacional"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'modBCST',
-                    $std->modBCST,
-                    true,
-                    "[item $std->item] Alíquota aplicável de cálculo do crédito (Simples Nacional)."
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pMVAST',
-                    $std->pMVAST,
-                    false,
-                    "[item $std->item] Percentual da margem de valor Adicionado do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pRedBCST',
-                    $std->pRedBCST,
-                    false,
-                    "[item $std->item] Percentual da Redução de BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vBCST',
-                    $std->vBCST,
-                    true,
-                    "[item $std->item] Valor da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pICMSST',
-                    $std->pICMSST,
-                    true,
-                    "[item $std->item] Alíquota do imposto do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vICMSST',
-                    $std->vICMSST,
-                    true,
-                    "[item $std->item] Valor do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vBCFCPST',
-                    $std->vBCFCPST,
-                    isset($std->vBCFCPST) ? true : false,
-                    "[item $std->item] Valor da Base de Cálculo do FCP "
-                        . "retido por Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pFCPST',
-                    $std->pFCPST,
-                    isset($std->pFCPST) ? true : false,
-                    "[item $std->item] Percentual do FCP retido por "
-                        . "Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vFCPST',
-                    $std->vFCPST,
-                    isset($std->vFCPST) ? true : false,
-                    "[item $std->item] Valor do FCP retido por Substituição Tributária"
-                );
-                break;
-            case '500':
-                $icmsSN = $this->dom->createElement("ICMSSN500");
-                $this->dom->addChild(
-                    $icmsSN,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "[item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'CSOSN',
-                    $std->CSOSN,
-                    true,
-                    "[item $std->item] Código de Situação da Operação Simples Nacional"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vBCSTRet',
-                    $std->vBCSTRet,
-                    isset($std->vBCSTRet) ? true : false,
-                    "[item $std->item] Valor da BC do ICMS ST retido"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pST',
-                    $std->pST,
-                    isset($std->pST) ? true : false,
-                    "[item $std->item] Alíquota suportada pelo Consumidor Final"
-                );
-
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vICMSSubstituto',
-                    !empty($std->vICMSSubstituto) ? number_format($std->vICMSSubstituto, 2, '.', '') : null,
-                    false,
-                    "[item $std->item] Valor do ICMS próprio do Substituto"
-                );
-                
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vICMSSTRet',
-                    $std->vICMSSTRet,
-                    isset($std->vICMSSTRet) ? true : false,
-                    "[item $std->item] Valor do ICMS ST retido"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vBCFCPSTRet',
-                    $std->vBCFCPSTRet,
-                    isset($std->vBCFCPSTRet) ? true : false,
-                    "[item $std->item] Valor da Base de Cálculo do FCP "
-                        . "retido anteriormente por Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pFCPSTRet',
-                    $std->pFCPSTRet,
-                    isset($std->pFCPSTRet) ? true : false,
-                    "[item $std->item] Percentual do FCP retido anteriormente por "
-                        . "Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vFCPSTRet',
-                    $std->vFCPSTRet,
-                    isset($std->vFCPSTRet) ? true : false,
-                    "[item $std->item] Valor do FCP retido anteiormente por "
-                        . "Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pRedBCEfet',
-                    $std->pRedBCEfet,
-                    isset($std->pRedBCEfet) ? true : false,
-                    "[item $std->item] Percentual de redução da base "
-                        . "de cálculo efetiva"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vBCEfet',
-                    $std->vBCEfet,
-                    isset($std->vBCEfet) ? true : false,
-                    "[item $std->item] Valor da base de cálculo efetiva"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pICMSEfet',
-                    $std->pICMSEfet,
-                    isset($std->pICMSEfet) ? true : false,
-                    "[item $std->item] Alíquota do ICMS efetiva"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vICMSEfet',
-                    $std->vICMSEfet,
-                    isset($std->vICMSEfet) ? true : false,
-                    "[item $std->item] Valor do ICMS efetivo"
-                );
-                break;
-            case '900':
-                $icmsSN = $this->dom->createElement("ICMSSN900");
-                $this->dom->addChild(
-                    $icmsSN,
-                    'orig',
-                    $std->orig,
-                    true,
-                    "[item $std->item] Origem da mercadoria"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'CSOSN',
-                    $std->CSOSN,
-                    true,
-                    "[item $std->item] Código de Situação da Operação Simples Nacional"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'modBC',
-                    $std->modBC,
-                    isset($std->modBC) ? true : false,
-                    "[item $std->item] Modalidade de determinação da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vBC',
-                    $std->vBC,
-                    isset($std->vBC) ? true : false,
-                    "[item $std->item] Valor da BC do ICMS"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pRedBC',
-                    $std->pRedBC,
-                    false,
-                    "[item $std->item] Percentual da Redução de BC"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pICMS',
-                    $std->pICMS,
-                    isset($std->pICMS) ? true : false,
-                    "[item $std->item] Alíquota do imposto"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vICMS',
-                    $std->vICMS,
-                    isset($std->pICMS) ? true : false,
-                    "[item $std->item] Valor do ICMS"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'modBCST',
-                    $std->modBCST,
-                    isset($std->modBCST) ? true : false,
-                    "[item $std->item] Alíquota aplicável de cálculo do crédito (Simples Nacional)."
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pMVAST',
-                    $std->pMVAST,
-                    false,
-                    "[item $std->item] Percentual da margem de valor Adicionado do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pRedBCST',
-                    $std->pRedBCST,
-                    false,
-                    "[item $std->item] Percentual da Redução de BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vBCST',
-                    $std->vBCST,
-                    isset($std->vBCST) ? true : false,
-                    "[item $std->item] Valor da BC do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pICMSST',
-                    $std->pICMSST,
-                    isset($std->pICMSST) ? true : false,
-                    "[item $std->item] Alíquota do imposto do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vICMSST',
-                    $std->vICMSST,
-                    isset($std->vICMSST) ? true : false,
-                    "[item $std->item] Valor do ICMS ST"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vBCFCPST',
-                    $std->vBCFCPST,
-                    isset($std->vBCFCPST) ? true : false,
-                    "[item $std->item] Valor da Base de Cálculo do FCP "
-                        . "retido por Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pFCPST',
-                    $std->pFCPST,
-                    isset($std->pFCPST) ? true : false,
-                    "[item $std->item] Percentual do FCP retido por "
-                        . "Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vFCPST',
-                    $std->vFCPST,
-                    isset($std->vFCPST) ? true : false,
-                    "[item $std->item] Valor do FCP retido por Substituição Tributária"
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'pCredSN',
-                    $std->pCredSN,
-                    isset($std->pCredSN) ? true : false,
-                    "[item $std->item] Alíquota aplicável de cálculo do crédito (Simples Nacional)."
-                );
-                $this->dom->addChild(
-                    $icmsSN,
-                    'vCredICMSSN',
-                    $std->vCredICMSSN,
-                    isset($std->vCredICMSSN) ? true : false,
-                    "[item $std->item] Valor crédito do ICMS que pode ser aproveitado nos termos do"
-                    . " art. 23 da LC 123 (Simples Nacional)"
-                );
-                break;
-        }
-        //caso exista a tag aICMS[$std-item] inserir nela caso contrario criar
-        if (!empty($this->aICMS[$std->item])) {
-            $tagIcms = $this->aICMS[$std->item];
-        } else {
-            $tagIcms = $this->dom->createElement('ICMS');
-        }
-        if (isset($icmsSN)) {
-            $this->dom->appChild($tagIcms, $icmsSN, "Inserindo ICMSST em ICMS[$std->item]");
-        }
-        $this->aICMS[$std->item] = $tagIcms;
-        return $tagIcms;
-    }
-
-    /**
-     * Grupo ICMSUFDest NA01 pai M01
-     * tag NFe/infNFe/det[]/imposto/ICMSUFDest (opcional)
-     * Grupo a ser informado nas vendas interestaduais para consumidor final,
-     * não contribuinte do ICMS
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagICMSUFDest(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'vBCUFDest',
-            'vBCFCPUFDest',
-            'pFCPUFDest',
-            'pICMSUFDest',
-            'pICMSInter',
-            'pICMSInterPart',
-            'vFCPUFDest',
-            'vICMSUFDest',
-            'vICMSUFRemet'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-            
-        try{
-            $this->stdTot->vICMSUFDest += (float) $std->vICMSUFDest;
-            $this->stdTot->vFCPUFDest += (float) $std->vFCPUFDest;
-            $this->stdTot->vICMSUFRemet += (float) $std->vICMSUFRemet;
-        } catch (\Exception $e){
-
-        }
-
-        $icmsUFDest = $this->dom->createElement('ICMSUFDest');
-        $this->dom->addChild(
-            $icmsUFDest,
-            "vBCUFDest",
-            $std->vBCUFDest,
-            true,
-            "[item $std->item] Valor da BC do ICMS na UF do destinatário"
-        );
-        $this->dom->addChild(
-            $icmsUFDest,
-            "vBCFCPUFDest",
-            $std->vBCFCPUFDest,
-            false,
-            "[item $std->item] Valor da BC do ICMS na UF do destinatário"
-        );
-        $this->dom->addChild(
-            $icmsUFDest,
-            "pFCPUFDest",
-            $std->pFCPUFDest,
-            false,
-            "[item $std->item] Percentual do ICMS relativo ao Fundo de Combate à Pobreza (FCP) na UF de destino"
-        );
-        $this->dom->addChild(
-            $icmsUFDest,
-            "pICMSUFDest",
-            $std->pICMSUFDest,
-            true,
-            "[item $std->item] Alíquota interna da UF do destinatário"
-        );
-        $this->dom->addChild(
-            $icmsUFDest,
-            "pICMSInter",
-            $std->pICMSInter,
-            true,
-            "[item $std->item] Alíquota interestadual das UF envolvidas"
-        );
-        $this->dom->addChild(
-            $icmsUFDest,
-            "pICMSInterPart",
-            $std->pICMSInterPart,
-            true,
-            "[item $std->item] Percentual provisório de partilha entre os Estados"
-        );
-        $this->dom->addChild(
-            $icmsUFDest,
-            "vFCPUFDest",
-            $std->vFCPUFDest,
-            false,
-            "[item $std->item] Valor do ICMS relativo ao Fundo de Combate à Pobreza (FCP) da UF de destino"
-        );
-        $this->dom->addChild(
-            $icmsUFDest,
-            "vICMSUFDest",
-            $std->vICMSUFDest,
-            true,
-            "[item $std->item] Valor do ICMS de partilha para a UF do destinatário"
-        );
-        $this->dom->addChild(
-            $icmsUFDest,
-            "vICMSUFRemet",
-            $std->vICMSUFRemet,
-            true,
-            "[item $std->item] Valor do ICMS de partilha para a UF do remetente"
-        );
-        $this->aICMSUFDest[$std->item] = $icmsUFDest;
-        return $icmsUFDest;
-    }
-
-    /**
-     * Grupo IPI O01 pai M01
-     * tag NFe/infNFe/det[]/imposto/IPI (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagIPI(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'clEnq',
-            'CNPJProd',
-            'cSelo',
-            'qSelo',
-            'cEnq',
-            'CST',
-            'vIPI',
-            'vBC',
-            'pIPI',
-            'qUnid',
-            'vUnid'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        //totalizador
-        try{
-            $this->stdTot->vIPI += (float) $std->vIPI;
-        } catch(\Exception $e){
-
-        }
-
-        $ipi = $this->dom->createElement('IPI');
-        $this->dom->addChild(
-            $ipi,
-            "clEnq",
-            $std->clEnq,
-            false,
-            "[item $std->item] Classe de enquadramento do IPI para Cigarros e Bebidas"
-        );
-        $this->dom->addChild(
-            $ipi,
-            "CNPJProd",
-            $std->CNPJProd,
-            false,
-            "[item $std->item] CNPJ do produtor da mercadoria, quando diferente do emitente. "
-            . "Somente para os casos de exportação direta ou indireta."
-        );
-        $this->dom->addChild(
-            $ipi,
-            "cSelo",
-            $std->cSelo,
-            false,
-            "[item $std->item] Código do selo de controle IPI"
-        );
-        $this->dom->addChild(
-            $ipi,
-            "qSelo",
-            $std->qSelo,
-            false,
-            "[item $std->item] Quantidade de selo de controle"
-        );
-        $this->dom->addChild(
-            $ipi,
-            "cEnq",
-            $std->cEnq,
-            true,
-            "[item $std->item] Código de Enquadramento Legal do IPI"
-        );
-        if ($std->CST == '00' || $std->CST == '49' || $std->CST == '50' || $std->CST == '99') {
-            $ipiTrib = $this->dom->createElement('IPITrib');
-            $this->dom->addChild(
-                $ipiTrib,
-                "CST",
-                $std->CST,
-                true,
-                "[item $std->item] Código da situação tributária do IPI"
-            );
-            $this->dom->addChild(
-                $ipiTrib,
-                "vBC",
-                $std->vBC,
-                false,
-                "[item $std->item] Valor da BC do IPI"
-            );
-            $this->dom->addChild(
-                $ipiTrib,
-                "pIPI",
-                $std->pIPI,
-                false,
-                "[item $std->item] Alíquota do IPI"
-            );
-            $this->dom->addChild(
-                $ipiTrib,
-                "qUnid",
-                $std->qUnid,
-                false,
-                "[item $std->item] Quantidade total na unidade padrão para tributação (somente para os "
-                . "produtos tributados por unidade)"
-            );
-            $this->dom->addChild(
-                $ipiTrib,
-                "vUnid",
-                $std->vUnid,
-                false,
-                "[item $std->item] Valor por Unidade Tributável"
-            );
-            $this->dom->addChild(
-                $ipiTrib,
-                "vIPI",
-                $std->vIPI,
-                true,
-                "[item $std->item] Valor do IPI"
-            );
-            $ipi->appendChild($ipiTrib);
-        } else {
-            $ipINT = $this->dom->createElement('IPINT');
-            $this->dom->addChild(
-                $ipINT,
-                "CST",
-                $std->CST,
-                true,
-                "[item $std->item] Código da situação tributária do IPINT"
-            );
-            $ipi->appendChild($ipINT);
-        }
-        $this->aIPI[$std->item] = $ipi;
-        return $ipi;
-    }
-
-    /**
-     * Grupo Imposto de Importação P01 pai M01
-     * tag NFe/infNFe/det[]/imposto/II
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagII(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'vBC',
-            'vDespAdu',
-            'vII',
-            'vIOF'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        //totalizador
-        try{
-            $this->stdTot->vII += (float) $std->vII;
-        } catch (\Exception $e){
-
-        }
-
-        $tii = $this->dom->createElement('II');
-        $this->dom->addChild(
-            $tii,
-            "vBC",
-            number_format($std->vBC, 2, '.', ''),
-            true,
-            "[item $std->item] Valor BC do Imposto de Importação"
-        );
-        $this->dom->addChild(
-            $tii,
-            "vDespAdu",
-            number_format($std->vDespAdu, 2, '.', ''),
-            true,
-            "[item $std->item] Valor despesas aduaneiras"
-        );
-        $this->dom->addChild(
-            $tii,
-            "vII",
-            number_format($std->vII, 2, '.', ''),
-            true,
-            "[item $std->item] Valor Imposto de Importação"
-        );
-        $this->dom->addChild(
-            $tii,
-            "vIOF",
-            number_format($std->vIOF, 2, '.', ''),
-            true,
-            "[item $std->item] Valor Imposto sobre Operações Financeiras"
-        );
-        $this->aII[$std->item] = $tii;
-        return $tii;
-    }
-
-    /**
-     * Grupo PIS Q01 pai M01
-     * tag NFe/infNFe/det[]/imposto/PIS
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagPIS(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'CST',
-            'vBC',
-            'pPIS',
-            'vPIS',
-            'qBCProd',
-            'vAliqProd'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        //totalizador
-
-        try{
-            
-            $this->stdTot->vPIS += $std->vPIS;
-
-        } catch(\Exception $e){
-
-        }
-
-        switch ($std->CST) {
-            case '01':
-            case '02':
-                $pisItem = $this->dom->createElement('PISAliq');
-                $this->dom->addChild(
-                    $pisItem,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "[item $std->item] Código de Situação Tributária do PIS"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'vBC',
-                    $std->vBC,
-                    true,
-                    "[item $std->item] Valor da Base de Cálculo do PIS"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'pPIS',
-                    $std->pPIS,
-                    true,
-                    "[item $std->item] Alíquota do PIS (em percentual)"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'vPIS',
-                    $std->vPIS == '' ? 0.00 : $std->vPIS,
-                    true,
-                    "[item $std->item] Valor do PIS"
-                );
-                break;
-            case '03':
-                $pisItem = $this->dom->createElement('PISQtde');
-                $this->dom->addChild(
-                    $pisItem,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "[item $std->item] Código de Situação Tributária do PIS"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'qBCProd',
-                    $std->qBCProd,
-                    true,
-                    "[item $std->item] Quantidade Vendida"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'vAliqProd',
-                    $std->vAliqProd,
-                    true,
-                    "[item $std->item] Alíquota do PIS (em reais)"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'vPIS',
-                    $std->vPIS == '' ? 0.00 : $std->vPIS,
-                    true,
-                    "[item $std->item] Valor do PIS"
-                );
-                break;
-            case '04':
-            case '05':
-            case '06':
-            case '07':
-            case '08':
-            case '09':
-                $pisItem = $this->dom->createElement('PISNT');
-                $this->dom->addChild(
-                    $pisItem,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "[item $std->item] Código de Situação Tributária do PIS"
-                );
-                break;
-            case '49':
-            case '50':
-            case '51':
-            case '52':
-            case '53':
-            case '54':
-            case '55':
-            case '56':
-            case '60':
-            case '61':
-            case '62':
-            case '63':
-            case '64':
-            case '65':
-            case '66':
-            case '67':
-            case '70':
-            case '71':
-            case '72':
-            case '73':
-            case '74':
-            case '75':
-            case '98':
-            case '99':
-                $pisItem = $this->dom->createElement('PISOutr');
-                $this->dom->addChild(
-                    $pisItem,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "[item $std->item] Código de Situação Tributária do PIS"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'vBC',
-                    $std->vBC,
-                    ($std->vBC !== null) ? true : false,
-                    "[item $std->item] Valor da Base de Cálculo do PIS"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'pPIS',
-                    $std->pPIS,
-                    ($std->pPIS !== null) ? true : false,
-                    "[item $std->item] Alíquota do PIS (em percentual)"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'qBCProd',
-                    $std->qBCProd,
-                    ($std->qBCProd !== null) ? true : false,
-                    "[item $std->item] Quantidade Vendida"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'vAliqProd',
-                    $std->vAliqProd,
-                    ($std->vAliqProd !== null) ? true : false,
-                    "[item $std->item] Alíquota do PIS (em reais)"
-                );
-                $this->dom->addChild(
-                    $pisItem,
-                    'vPIS',
-                    $std->vPIS == '' ? 0.00 : $std->vPIS,
-                    true,
-                    "[item $std->item] Valor do PIS"
-                );
-                break;
-        }
-        $pis = $this->dom->createElement('PIS');
-        if (isset($pisItem)) {
-            $pis->appendChild($pisItem);
-        }
-        $this->aPIS[$std->item] = $pis;
-        return $pis;
-    }
-
-    /**
-     * Grupo PIS Substituição Tributária R01 pai M01
-     * tag NFe/infNFe/det[]/imposto/PISST (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagPISST(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'vPIS',
-            'vBC',
-            'pPIS',
-            'qBCProd',
-            'vAliqProd'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $pisst = $this->dom->createElement('PISST');
-        $this->dom->addChild(
-            $pisst,
-            'vBC',
-            $std->vBC,
-            true,
-            "[item $std->item] Valor da Base de Cálculo do PIS"
-        );
-        $this->dom->addChild(
-            $pisst,
-            'pPIS',
-            $std->pPIS,
-            true,
-            "[item $std->item] Alíquota do PIS (em percentual)"
-        );
-        $this->dom->addChild(
-            $pisst,
-            'qBCProd',
-            $std->qBCProd,
-            true,
-            "[item $std->item] Quantidade Vendida"
-        );
-        $this->dom->addChild(
-            $pisst,
-            'vAliqProd',
-            $std->vAliqProd,
-            true,
-            "[item $std->item] Alíquota do PIS (em reais)"
-        );
-        $this->dom->addChild(
-            $pisst,
-            'vPIS',
-            $std->vPIS,
-            true,
-            "[item $std->item] Valor do PIS"
-        );
-        $this->aPISST[$std->item] = $pisst;
-        return $pisst;
-    }
-
-    /**
-     * Grupo COFINS S01 pai M01
-     * tag det[item]/imposto/COFINS (opcional)
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function tagCOFINS(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'CST',
-            'vBC',
-            'pCOFINS',
-            'vCOFINS',
-            'qBCProd',
-            'vAliqProd'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        //totalizador
-        try{
-            $this->stdTot->vCOFINS += (float) $std->vCOFINS;
-        } catch (\Exception $e){
-
-        }
-
-        switch ($std->CST) {
-            case '01':
-            case '02':
-                $confinsItem = $this->buildCOFINSAliq($std);
-                break;
-            case '03':
-                $confinsItem = $this->dom->createElement('COFINSQtde');
-                $this->dom->addChild(
-                    $confinsItem,
-                    'CST',
-                    $std->CST,
-                    true,
-                    "[item $std->item] Código de Situação Tributária da COFINS"
-                );
-                $this->dom->addChild(
-                    $confinsItem,
-                    'qBCProd',
-                    $std->qBCProd,
-                    true,
-                    "[item $std->item] Quantidade Vendida"
-                );
-                $this->dom->addChild(
-                    $confinsItem,
-                    'vAliqProd',
-                    $std->vAliqProd,
-                    true,
-                    "[item $std->item] Alíquota do COFINS (em reais)"
-                );
-                $this->dom->addChild(
-                    $confinsItem,
-                    'vCOFINS',
-                    $std->vCOFINS,
-                    true,
-                    "[item $std->item] Valor do COFINS"
-                );
-                break;
-            case '04':
-            case '05':
-            case '06':
-            case '07':
-            case '08':
-            case '09':
-                $confinsItem = $this->buildCOFINSNT($std);
-                break;
-            case '49':
-            case '50':
-            case '51':
-            case '52':
-            case '53':
-            case '54':
-            case '55':
-            case '56':
-            case '60':
-            case '61':
-            case '62':
-            case '63':
-            case '64':
-            case '65':
-            case '66':
-            case '67':
-            case '70':
-            case '71':
-            case '72':
-            case '73':
-            case '74':
-            case '75':
-            case '98':
-            case '99':
-                $confinsItem = $this->buildCOFINSoutr($std);
-                break;
-        }
-        $confins = $this->dom->createElement('COFINS');
-        if (isset($confinsItem)) {
-            $confins->appendChild($confinsItem);
-        }
-        $this->aCOFINS[$std->item] = $confins;
-        return $confins;
-    }
-
-    /**
-     * Grupo COFINS Substituição Tributária T01 pai M01
-     * tag NFe/infNFe/det[]/imposto/COFINSST (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagCOFINSST(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'vCOFINS',
-            'vBC',
-            'pCOFINS',
-            'qBCProd',
-            'vAliqProd'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $cofinsst = $this->dom->createElement("COFINSST");
-        $this->dom->addChild(
-            $cofinsst,
-            "vBC",
-            $std->vBC,
-            false,
-            "[item $std->item] Valor da Base de Cálculo da COFINS"
-        );
-        $this->dom->addChild(
-            $cofinsst,
-            "pCOFINS",
-            $std->pCOFINS,
-            false,
-            "[item $std->item] Alíquota da COFINS (em percentual)"
-        );
-        $this->dom->addChild(
-            $cofinsst,
-            "qBCProd",
-            $std->qBCProd,
-            false,
-            "[item $std->item] Quantidade Vendida"
-        );
-        $this->dom->addChild(
-            $cofinsst,
-            "vAliqProd",
-            $std->vAliqProd,
-            false,
-            "[item $std->item] Alíquota da COFINS (em reais)"
-        );
-        $this->dom->addChild(
-            $cofinsst,
-            "vCOFINS",
-            $std->vCOFINS,
-            true,
-            "[item $std->item] Valor da COFINS"
-        );
-        $this->aCOFINSST[$std->item] = $cofinsst;
-        return $cofinsst;
-    }
-
-    /**
-     * Grupo ISSQN U01 pai M01
-     * tag NFe/infNFe/det[]/imposto/ISSQN (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagISSQN(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'vBC',
-            'vAliq',
-            'vISSQN',
-            'cMunFG',
-            'cListServ',
-            'vDeducao',
-            'vOutro',
-            'vDescIncond',
-            'vDescCond',
-            'vISSRet',
-            'indISS',
-            'cServico',
-            'cMun',
-            'cPais',
-            'nProcesso',
-            'indIncentivo'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $issqn = $this->dom->createElement("ISSQN");
-        $this->dom->addChild(
-            $issqn,
-            "vBC",
-            $std->vBC,
-            true,
-            "[item $std->item] Valor da Base de Cálculo do ISSQN"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "vAliq",
-            $std->vAliq,
-            true,
-            "[item $std->item] Alíquota do ISSQN"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "vISSQN",
-            $std->vISSQN,
-            true,
-            "[item $std->item] Valor do ISSQN"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "cMunFG",
-            $std->cMunFG,
-            true,
-            "[item $std->item] Código do município de ocorrência do fato gerador do ISSQN"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "cListServ",
-            $std->cListServ,
-            true,
-            "[item $std->item] Item da Lista de Serviços"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "vDeducao",
-            $std->vDeducao,
-            false,
-            "[item $std->item] Valor dedução para redução da Base de Cálculo"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "vOutro",
-            $std->vOutro,
-            false,
-            "[item $std->item] Valor outras retenções"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "vDescIncond",
-            $std->vDescIncond,
-            false,
-            "[item $std->item] Valor desconto incondicionado"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "vDescCond",
-            $std->vDescCond,
-            false,
-            "[item $std->item] Valor desconto condicionado"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "vISSRet",
-            $std->vISSRet,
-            false,
-            "[item $std->item] Valor retenção ISS"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "indISS",
-            $std->indISS,
-            true,
-            "[item $std->item] Indicador da exigibilidade do ISS"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "cServico",
-            $std->cServico,
-            false,
-            "[item $std->item] Código do serviço prestado dentro do município"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "cMun",
-            $std->cMun,
-            false,
-            "[item $std->item] Código do Município de incidência do imposto"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "cPais",
-            $std->cPais,
-            false,
-            "[item $std->item] Código do País onde o serviço foi prestado"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "nProcesso",
-            $std->nProcesso,
-            false,
-            "[item $std->item] Número do processo judicial ou administrativo de suspensão da exigibilidade"
-        );
-        $this->dom->addChild(
-            $issqn,
-            "indIncentivo",
-            $std->indIncentivo,
-            true,
-            "[item $std->item] Indicador de incentivo Fiscal"
-        );
-        $this->aISSQN[$std->item] = $issqn;
-        return $issqn;
-    }
-
-    /**
-     * Informação do Imposto devolvido U50 pai H01
-     * tag NFe/infNFe/det[]/impostoDevol (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagimpostoDevol(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'pDevol',
-            'vIPIDevol'
-        ];
-
-        $std = $this->equilizeParameters($std, $possible);
-
-        //totalizador
-        try{
-            $this->stdTot->vIPIDevol += (float) $std->vIPIDevol;
-        } catch (\Exception $e){
-
-        }
-
-        $impostoDevol = $this->dom->createElement("impostoDevol");
-        $this->dom->addChild(
-            $impostoDevol,
-            "pDevol",
-            $std->pDevol,
-            true,
-            "[item $std->item] Percentual da mercadoria devolvida"
-        );
-        $parent = $this->dom->createElement("IPI");
-        $this->dom->addChild(
-            $parent,
-            "vIPIDevol",
-            $std->vIPIDevol,
-            true,
-            "[item $std->item] Valor do IPI devolvido"
-        );
-        $impostoDevol->appendChild($parent);
-        $this->aImpostoDevol[$std->item] = $impostoDevol;
-        return $impostoDevol;
-    }
-
-    /**
-     * Grupo Totais referentes ao ICMS W02 pai W01
-     * tag NFe/infNFe/total/ICMSTot
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagICMSTot(stdClass $std)
-    {
-        $this->buildTotal();
-        $vBC = !empty($std->vBC) ? $std->vBC : $this->stdTot->vBC;
-        $vICMS = !empty($std->vICMS) ? $std->vICMS : $this->stdTot->vICMS;
-        $vICMSDeson = !empty($std->vICMSDeson) ? $std->vICMSDeson : $this->stdTot->vICMSDeson;
-        $vBCST = !empty($std->vBCST) ? $std->vBCST : $this->stdTot->vBCST;
-        $vST = !empty($std->vST) ? $std->vST : $this->stdTot->vST;
-        $vProd = !empty($std->vProd) ? $std->vProd : $this->stdTot->vProd;
-        $vFrete = !empty($std->vFrete) ? $std->vFrete : $this->stdTot->vFrete;
-        $vSeg = !empty($std->vSeg) ? $std->vSeg : $this->stdTot->vSeg;
-        $vDesc = !empty($std->vDesc) ? $std->vDesc : $this->stdTot->vDesc;
-        $vII = !empty($std->vII) ? $std->vII : $this->stdTot->vII;
-        $vIPI = !empty($std->vIPI) ? $std->vIPI : $this->stdTot->vIPI;
-        $vPIS = !empty($std->vPIS) ? $std->vPIS : $this->stdTot->vPIS;
-        $vCOFINS = !empty($std->vCOFINS) ? $std->vCOFINS : $this->stdTot->vCOFINS;
-        $vOutro = !empty($std->vOutro) ? $std->vOutro : $this->stdTot->vOutro;
-        $vNF = !empty($std->vNF) ? $std->vNF : $this->stdTot->vNF;
-        $vIPIDevol = !empty($std->vIPIDevol) ? $std->vIPIDevol : $this->stdTot->vIPIDevol;
-        $vTotTrib = !empty($std->vTotTrib) ? $std->vTotTrib : $this->stdTot->vTotTrib;
-        $vFCP = !empty($std->vFCP) ? $std->vFCP : $this->stdTot->vFCP;
-        $vFCPST = !empty($std->vFCPST) ? $std->vFCPST : $this->stdTot->vFCPST;
-        $vFCPSTRet = !empty($std->vFCPSTRet) ? $std->vFCPSTRet : $this->stdTot->vFCPSTRet;
-        $vFCPUFDest = !empty($std->vFCPUFDest) ? $std->vFCPUFDest : $this->stdTot->vFCPUFDest;
-        $vICMSUFDest = !empty($std->vICMSUFDest) ? $std->vICMSUFDest : $this->stdTot->vICMSUFDest;
-        $vICMSUFRemet = !empty($std->vICMSUFRemet) ? $std->vICMSUFRemet : $this->stdTot->vICMSUFRemet;
-
-        //campos opcionais incluir se maior que zero
-
-        $vFCPUFDest = ($vFCPUFDest > 0) ? $this->transformMoney($vFCPUFDest, 2, '.', '') : null;
-        $vICMSUFDest = ($vICMSUFDest > 0) ? $this->transformMoney($vICMSUFDest, 2, '.', '') : null;
-        $vICMSUFRemet = ($vICMSUFRemet > 0) ? $this->transformMoney($vICMSUFRemet, 2, '.', '') : null;
-        $vTotTrib = ($vTotTrib > 0) ? $this->transformMoney($vTotTrib, 2, '.', '') : null;
-        
-        //campos especificos por layout
-        if ($this->version == '3.10') {
-            //campos inexistentes no 3.10
-            $vFCP = null;
-            $vFCPST = null;
-            $vFCPSTRet = null;
-            $vIPIDevol = null;
-        } else {
-            //campos obrigatórios para 4.00
-            $vFCP = $this->transformMoney($vFCP, 2, '.', '');
-            $vFCPST = $this->transformMoney($vFCPST, 2, '.', '');
-            $vFCPSTRet = $this->transformMoney($vFCPSTRet, 2, '.', '');
-            $vIPIDevol = $this->transformMoney($vIPIDevol, 2, '.', '');
-        }
-        $ICMSTot = $this->dom->createElement("ICMSTot");
-        $this->dom->addChild(
-            $ICMSTot,
-            "vBC",
-            $this->transformMoney($vBC, 2, '.', ''),
-            true,
-            "Base de Cálculo do ICMS"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vICMS",
-            $this->transformMoney($vICMS, 2, '.', ''),
-            true,
-            "Valor Total do ICMS"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vICMSDeson",
-            $this->transformMoney($vICMSDeson, 2, '.', ''),
-            true,
-            "Valor Total do ICMS desonerado"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vFCPUFDest",
-            $vFCPUFDest,
-            false,
-            "Valor total do ICMS relativo ao Fundo de Combate à Pobreza(FCP) "
-            . "para a UF de destino"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vICMSUFDest",
-            $vICMSUFDest,
-            false,
-            "Valor total do ICMS de partilha para a UF do destinatário"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vICMSUFRemet",
-            $vICMSUFRemet,
-            false,
-            "Valor total do ICMS de partilha para a UF do remetente"
-        );
-        //incluso no layout 4.00
-        $this->dom->addChild(
-            $ICMSTot,
-            "vFCP",
-            $vFCP,
-            false,
-            "Valor total do ICMS relativo ao Fundo de Combate à Pobreza(FCP) "
-            . "para a UF de destino"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vBCST",
-            $this->transformMoney($vBCST, 2, '.', ''),
-            true,
-            "Base de Cálculo do ICMS ST"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vST",
-            $this->transformMoney($vST, 2, '.', ''),
-            true,
-            "Valor Total do ICMS ST"
-        );
-        //incluso na 4.00
-        $this->dom->addChild(
-            $ICMSTot,
-            "vFCPST",
-            $vFCPST,
-            false, //true para 4.00
-            "Valor Total do FCP (Fundo de Combate à Pobreza) "
-            . "retido por substituição tributária"
-        );
-        //incluso na 4.00
-        $this->dom->addChild(
-            $ICMSTot,
-            "vFCPSTRet",
-            $vFCPSTRet,
-            false, //true para 4.00
-            "Valor Total do FCP retido anteriormente por "
-            . "Substituição Tributária"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vProd",
-            $this->transformMoney($vProd, 2, '.', ''),
-            true,
-            "Valor Total dos produtos e serviços"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vFrete",
-            $this->transformMoney($vFrete, 2, '.', ''),
-            true,
-            "Valor Total do Frete"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vSeg",
-            $this->transformMoney($vSeg, 2, '.', ''),
-            true,
-            "Valor Total do Seguro"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vDesc",
-            $this->transformMoney($vDesc, 2, '.', ''),
-            true,
-            "Valor Total do Desconto"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vII",
-            $this->transformMoney($vII, 2, '.', ''),
-            true,
-            "Valor Total do II"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vIPI",
-            $this->transformMoney($vIPI, 2, '.', ''),
-            true,
-            "Valor Total do IPI"
-        );
-        //incluso 4.00
-        $this->dom->addChild(
-            $ICMSTot,
-            "vIPIDevol",
-            $vIPIDevol,
-            false,
-            "Valor Total do IPI"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vPIS",
-            $this->transformMoney($vPIS, 2, '.', ''),
-            true,
-            "Valor do PIS"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vCOFINS",
-            $this->transformMoney($vCOFINS, 2, '.', ''),
-            true,
-            "Valor da COFINS"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vOutro",
-            $this->transformMoney($vOutro, 2, '.', ''),
-            true,
-            "Outras Despesas acessórias"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vNF",
-            $this->transformMoney($vNF, 2, '.', ''),
-            true,
-            "Valor Total da NF-e"
-        );
-        $this->dom->addChild(
-            $ICMSTot,
-            "vTotTrib",
-            $vTotTrib,
-            false,
-            "Valor aproximado total de tributos federais, estaduais e municipais."
-        );
-        $this->dom->appChild($this->total, $ICMSTot, '');
-        return $ICMSTot;
-    }
-
-    /**
-     * Grupo Totais referentes ao ISSQN W17 pai W01
-     * tag NFe/infNFe/total/ISSQNTot (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagISSQNTot(stdClass $std)
-    {
-        $possible = [
-            'vServ',
-            'vBC',
-            'vISS',
-            'vPIS',
-            'vCOFINS',
-            'dCompet',
-            'vDeducao',
-            'vOutro',
-            'vDescIncond',
-            'vDescCond',
-            'vISSRet',
-            'cRegTrib'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $this->buildTotal();
-        $ISSQNTot = $this->dom->createElement("ISSQNtot");
-        $this->dom->addChild(
-            $ISSQNTot,
-            "vServ",
-            $std->vServ,
-            false,
-            "Valor total dos Serviços sob não incidência ou não tributados pelo ICMS"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "vBC",
-            $std->vBC,
-            false,
-            "Valor total Base de Cálculo do ISS"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "vISS",
-            $std->vISS,
-            false,
-            "Valor total do ISS"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "vPIS",
-            $std->vPIS,
-            false,
-            "Valor total do PIS sobre serviços"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "vCOFINS",
-            $std->vCOFINS,
-            false,
-            "Valor total da COFINS sobre serviços"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "dCompet",
-            $std->dCompet,
-            true,
-            "Data da prestação do serviço"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "vDeducao",
-            $std->vDeducao,
-            false,
-            "Valor total dedução para redução da Base de Cálculo"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "vOutro",
-            $std->vOutro,
-            false,
-            "Valor total outras retenções"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "vDescIncond",
-            $std->vDescIncond,
-            false,
-            "Valor total desconto incondicionado"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "vDescCond",
-            $std->vDescCond,
-            false,
-            "Valor total desconto condicionado"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "vISSRet",
-            $std->vISSRet,
-            false,
-            "Valor total retenção ISS"
-        );
-        $this->dom->addChild(
-            $ISSQNTot,
-            "cRegTrib",
-            $std->cRegTrib,
-            false,
-            "Código do Regime Especial de Tributação"
-        );
-        $this->dom->appChild($this->total, $ISSQNTot, '');
-        return $ISSQNTot;
-    }
-
-    /**
-     * Grupo Retenções de Tributos W23 pai W01
-     * tag NFe/infNFe/total/reTrib (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagretTrib(stdClass $std)
-    {
-        $possible = [
-            'vRetPIS',
-            'vRetCOFINS',
-            'vRetCSLL',
-            'vBCIRRF',
-            'vIRRF',
-            'vBCRetPrev',
-            'vRetPrev'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $retTrib = $this->dom->createElement("retTrib");
-        $this->dom->addChild(
-            $retTrib,
-            "vRetPIS",
-            $std->vRetPIS,
-            false,
-            "Valor Retido de PIS"
-        );
-        $this->dom->addChild(
-            $retTrib,
-            "vRetCOFINS",
-            $std->vRetCOFINS,
-            false,
-            "Valor Retido de COFINS"
-        );
-        $this->dom->addChild(
-            $retTrib,
-            "vRetCSLL",
-            $std->vRetCSLL,
-            false,
-            "Valor Retido de CSLL"
-        );
-        $this->dom->addChild(
-            $retTrib,
-            "vBCIRRF",
-            $std->vBCIRRF,
-            false,
-            "Base de Cálculo do IRRF"
-        );
-        $this->dom->addChild(
-            $retTrib,
-            "vIRRF",
-            $std->vIRRF,
-            false,
-            "Valor Retido do IRRF"
-        );
-        $this->dom->addChild(
-            $retTrib,
-            "vBCRetPrev",
-            $std->vBCRetPrev,
-            false,
-            "Base de Cálculo da Retenção da Previdência Social"
-        );
-        $this->dom->addChild(
-            $retTrib,
-            "vRetPrev",
-            $std->vRetPrev,
-            false,
-            "Valor da Retenção da Previdência Social"
-        );
-        $this->dom->appChild($this->total, $retTrib, '');
-        return $retTrib;
-    }
-
-    /**
-     * Grupo Informações do Transporte X01 pai A01
-     * tag NFe/infNFe/transp (obrigatório)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagtransp(stdClass $std)
-    {
-        $this->transp = $this->dom->createElement("transp");
-        $this->dom->addChild(
-            $this->transp,
-            "modFrete",
-            $std->modFrete,
-            true,
-            "Modalidade do frete"
-        );
-        return $this->transp;
-    }
-
-    /**
-     * Grupo Transportador X03 pai X01
-     * tag NFe/infNFe/transp/tranporta (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagtransporta(stdClass $std)
-    {
-        $possible = [
-            'xNome',
-            'IE',
-            'xEnder',
-            'xMun',
-            'UF',
-            'CNPJ',
-            'CPF'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $transporta = $this->dom->createElement("transporta");
-        $this->dom->addChild(
-            $transporta,
-            "CNPJ",
-            $std->CNPJ,
-            false,
-            "CNPJ do Transportador"
-        );
-        $this->dom->addChild(
-            $transporta,
-            "CPF",
-            $std->CPF,
-            false,
-            "CPF do Transportador"
-        );
-        $this->dom->addChild(
-            $transporta,
-            "xNome",
-            $std->xNome,
-            false,
-            "Razão Social ou nome do Transportador"
-        );
-        $this->dom->addChild(
-            $transporta,
-            "IE",
-            $std->IE,
-            false,
-            "Inscrição Estadual do Transportador"
-        );
-        $this->dom->addChild(
-            $transporta,
-            "xEnder",
-            $std->xEnder,
-            false,
-            "Endereço Completo do Transportador"
-        );
-        $this->dom->addChild(
-            $transporta,
-            "xMun",
-            $std->xMun,
-            false,
-            "Nome do município do Transportador"
-        );
-        $this->dom->addChild(
-            $transporta,
-            "UF",
-            $std->UF,
-            false,
-            "Sigla da UF do Transportador"
-        );
-        $this->dom->appChild(
-            $this->transp,
-            $transporta,
-            'A tag transp deveria ter sido carregada primeiro.'
-        );
-        $this->dom->appChild($this->transp, $transporta, "Inclusão do node vol");
-        return $transporta;
-    }
-
-    /**
-     * Grupo Retenção ICMS transporte X11 pai X01
-     * tag NFe/infNFe/transp/retTransp (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagretTransp(stdClass $std)
-    {
-        $possible = [
-            'vServ',
-            'vBCRet',
-            'pICMSRet',
-            'vICMSRet',
-            'CFOP',
-            'cMunFG'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $retTransp = $this->dom->createElement("retTransp");
-        $this->dom->addChild(
-            $retTransp,
-            "vServ",
-            $std->vServ,
-            true,
-            "Valor do Serviço"
-        );
-        $this->dom->addChild(
-            $retTransp,
-            "vBCRet",
-            $std->vBCRet,
-            true,
-            "BC da Retenção do ICMS"
-        );
-        $this->dom->addChild(
-            $retTransp,
-            "pICMSRet",
-            $std->pICMSRet,
-            true,
-            "Alíquota da Retenção"
-        );
-        $this->dom->addChild(
-            $retTransp,
-            "vICMSRet",
-            $std->vICMSRet,
-            true,
-            "Valor do ICMS Retido"
-        );
-        $this->dom->addChild(
-            $retTransp,
-            "CFOP",
-            $std->CFOP,
-            true,
-            "CFOP"
-        );
-        $this->dom->addChild(
-            $retTransp,
-            "cMunFG",
-            $std->cMunFG,
-            true,
-            "Código do município de ocorrência do fato gerador do ICMS do transporte"
-        );
-        $this->dom->appChild(
-            $this->transp,
-            $retTransp,
-            'A tag transp deveria ter sido carregada primeiro.'
-        );
-        return $retTransp;
-    }
-
-    /**
-     * Grupo Veículo Transporte X18 pai X17.1
-     * tag NFe/infNFe/transp/veicTransp (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagveicTransp(stdClass $std)
-    {
-        $possible = [
-            'placa',
-            'UF',
-            'RNTC'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $veicTransp = $this->dom->createElement("veicTransp");
-        $this->dom->addChild(
-            $veicTransp,
-            "placa",
-            $std->placa,
-            true,
-            "Placa do Veículo"
-        );
-        $this->dom->addChild(
-            $veicTransp,
-            "UF",
-            $std->UF,
-            true,
-            "Sigla da UF do Veículo"
-        );
-        $this->dom->addChild(
-            $veicTransp,
-            "RNTC",
-            $std->RNTC,
-            false,
-            "Registro Nacional de Transportador de Carga (ANTT) do Veículo"
-        );
-        $this->dom->appChild(
-            $this->transp,
-            $veicTransp,
-            'A tag transp deveria ter sido carregada primeiro.'
-        );
-        return $veicTransp;
-    }
-
-    /**
-     * Grupo Reboque X22 pai X17.1
-     * tag NFe/infNFe/transp/reboque (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagreboque(stdClass $std)
-    {
-        $possible = [
-            'placa',
-            'UF',
-            'RNTC'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $reboque = $this->dom->createElement("reboque");
-        $this->dom->addChild(
-            $reboque,
-            "placa",
-            $std->placa,
-            true,
-            "Placa do Veículo Reboque"
-        );
-        $this->dom->addChild(
-            $reboque,
-            "UF",
-            $std->UF,
-            true,
-            "Sigla da UF do Veículo Reboque"
-        );
-        $this->dom->addChild(
-            $reboque,
-            "RNTC",
-            $std->RNTC,
-            false,
-            "Registro Nacional de Transportador de Carga (ANTT) do Veículo Reboque"
-        );
-        $this->dom->appChild(
-            $this->transp,
-            $reboque,
-            'A tag transp deveria ter sido carregada primeiro.'
-        );
-        return $reboque;
-    }
-    
-    /**
-     * Campo Vagao X25a pai X01
-     * tag NFe/infNFe/transp/vagao (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagvagao(stdClass $std)
-    {
-        $possible = [
-            'vagao'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-        $this->dom->addChild(
-            $this->transp,
-            "vagao",
-            $std->vagao,
-            false,
-            "Identificação do vagão do Veículo Reboque"
-        );
-    }
-
-    /**
-     * Campo Balsa X25b pai X01
-     * tag NFe/infNFe/transp/balsa (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagbalsa(stdClass $std)
-    {
-        $possible = [
-            'balsa'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-        $this->dom->addChild(
-            $this->transp,
-            "balsa",
-            $std->balsa,
-            false,
-            "Identificação da balsa do Veículo Reboque"
-        );
-    }
-
-    /**
-     * Grupo Volumes X26 pai X01
-     * tag NFe/infNFe/transp/vol (opcional)
-     * @param  stdClass $std
-     * @return DOMElement
-     */
-    public function tagvol(stdClass $std)
-    {
-        $possible = [
-            'item',
-            'qVol',
-            'esp',
-            'marca',
-            'nVol',
-            'pesoL',
-            'pesoB'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
-
-        $vol = $this->dom->createElement("vol");
-        $this->dom->addChild(
-            $vol,
-            "qVol",
-            $std->qVol,
-            false,
-            "Quantidade de volumes transportados"
-        );
-        $this->dom->addChild(
-            $vol,
-            "esp",
-            $std->esp,
-            false,
-            "Espécie dos volumes transportados"
-        );
-        $this->dom->addChild(
-            $vol,
-            "marca",
-            $std->marca,
-            false,
-            "Marca dos volumes transportados"
-        );
-        $this->dom->addChild(
-            $vol,
-            "nVol",
-            $std->nVol,
-            false,
-            "Numeração dos volumes transportados"
-        );
-        $this->dom->addChild(
-            $vol,
-            "pesoL",
-            $std->pesoL,
-            false,
-            "Peso Líquido (em kg) dos volumes transportados"
-        );
-        $this->dom->addChild(
-            $vol,
-            "pesoB",
-            $std->pesoB,
-            false,
-            "Peso Bruto (em kg) dos volumes transportados"
-        );
-        $this->aVol[$std->item] = $vol;
-        return $vol;
-    }
-
-    /**
-     * Grupo Lacres X33 pai X26
-     * tag NFe/infNFe/transp/vol/lacres (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function taglacres(stdClass $std)
-    {
-        $lacre = $this->dom->createElement("lacres");
-        $this->dom->addChild(
-            $lacre,
-            "nLacre",
-            $std->nLacre,
-            true,
-            "Número dos Lacres"
-        );
-        $this->dom->appChild($this->aVol[$std->item], $lacre, "Inclusão do node lacres");
-        return $lacre;
-    }
-
-    /**
-     * Node vol
-     */
-    protected function buildVol()
-    {
-        foreach ($this->aVol as $num => $vol) {
-            $this->dom->appChild($this->transp, $vol, "Inclusão do node vol");
-        }
-    }
-
-    /**
-     * Grupo Pagamento Y pai A01
-     * NOTA: Ajustado para NT2016_002_v1.30
-     * tag NFe/infNFe/pag (obrigatorio na NT2016_002_v1.30)
-     * Obrigatório para 55 e 65
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagpag($std)
-    {
-        $pag = $this->dom->createElement("pag");
-        //incluso no layout 4.00
-        $vTroco = !empty($std->vTroco) ? $std->vTroco : null;
-        $this->dom->addChild(
-            $pag,
-            "vTroco",
-            $vTroco,
-            false,
-            "Valor do troco"
-        );
-        return $this->aPag[] = $pag;
-    }
-
-    /**
-     * Grupo de Formas de Pagamento YA01a pai YA01
-     * NOTA: Ajuste NT_2016_002_v1.30
-     * NOTA: Ajuste NT_2016_002_v1 51
-     * tag NFe/infNFe/pag/detPag
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagdetPag($std)
-    {
-        $possible = [
-            'indPag',
-            'tPag',
-            'vPag',
-        ];
-
-        $std = $this->equilizeParameters($std, $possible);
-
-        if ($this->version === '3.10') {
-            $n = count($this->aPag);
-            $this->dom->addChild(
-                $this->aPag[$n-1],
-                "tPag",
-                $std->tPag,
-                true,
-                "Forma de pagamento"
-            );
-            $this->dom->addChild(
-                $this->aPag[$n-1],
-                "vPag",
-                $std->vPag,
-                true,
-                "Valor do Pagamento"
-            );
-            if (!empty($std->tpIntegra)) {
-                $card = $this->dom->createElement("card");
-                $this->dom->addChild(
-                    $card,
-                    "tpIntegra",
-                    $std->tpIntegra,
-                    true,
-                    "Tipo de Integração para pagamento"
-                );
-                $this->dom->addChild(
-                    $card,
-                    "CNPJ",
-                    !empty($std->CNPJ) ? $std->CNPJ : null,
-                    false,
-                    "CNPJ da Credenciadora de cartão de crédito e/ou débito"
-                );
-                $this->dom->addChild(
-                    $card,
-                    "tBand",
-                    !empty($std->tBand) ? $std->tBand : null,
-                    false,
-                    "Bandeira da operadora de cartão de crédito e/ou débito"
-                );
-                $this->dom->addChild(
-                    $card,
-                    "cAut",
-                    !empty($std->cAut) ? $std->cAut : null,
-                    false,
-                    "Número de autorização da operação cartão de crédito e/ou débito"
-                );
-                $this->dom->appChild($this->aPag[$n-1], $card, "Inclusão do node Card");
+            if ($pag == 1) { // primeira página
+                $maxW = $this->wPrint - $this->wCanhoto;
+            } else { // páginas seguintes
+                $maxW = $this->wPrint;
             }
-            return $this->aPag[$n-1];
+        }
+        //####################################################################################
+        //coluna esquerda identificação do emitente
+        $w = round($maxW*0.41, 0);
+        if ($this->orientacao == 'P') {
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'I');
         } else {
-            //padrão para layout 4.00
-            $detPag = $this->dom->createElement("detPag");
-            $this->dom->addChild(
-                $detPag,
-                "indPag",
-                !is_null($std->indPag) ? $std->indPag : null,
-                false,
-                "Indicador da Forma de Pagamento"
-            );
-            $this->dom->addChild(
-                $detPag,
-                "tPag",
-                $std->tPag,
-                true,
-                "Forma de pagamento"
-            );
-            $this->dom->addChild(
-                $detPag,
-                "vPag",
-                $std->vPag,
-                true,
-                "Valor do Pagamento"
-            );
-            if (!empty($std->tpIntegra)) {
-                $card = $this->dom->createElement("card");
-                $this->dom->addChild(
-                    $card,
-                    "tpIntegra",
-                    $std->tpIntegra,
-                    true,
-                    "Tipo de Integração para pagamento"
-                );
-                $this->dom->addChild(
-                    $card,
-                    "CNPJ",
-                    !empty($std->CNPJ) ? $std->CNPJ : null,
-                    false,
-                    "CNPJ da Credenciadora de cartão de crédito e/ou débito"
-                );
-                $this->dom->addChild(
-                    $card,
-                    "tBand",
-                    !empty($std->tBand) ? $std->tBand : null,
-                    false,
-                    "Bandeira da operadora de cartão de crédito e/ou débito"
-                );
-                $this->dom->addChild(
-                    $card,
-                    "cAut",
-                    !empty($std->cAut) ? $std->cAut : null,
-                    false,
-                    "Número de autorização da operação cartão de crédito e/ou débito"
-                );
-                $this->dom->appChild($detPag, $card, "Inclusão do node Card");
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'B');
+        }
+        $w1 = $w;
+        $h=32;
+        $oldY += $h;
+        $this->pTextBox($x, $y, $w, $h);
+        $texto = 'IDENTIFICAÇÃO DO EMITENTE';
+        $this->pTextBox($x, $y, $w, 5, $texto, $aFont, 'T', 'C', 0, '');
+        //estabelecer o alinhamento
+        //pode ser left L, center C, right R, full logo L
+        //se for left separar 1/3 da largura para o tamanho da imagem
+        //os outros 2/3 serão usados para os dados do emitente
+        //se for center separar 1/2 da altura para o logo e 1/2 para os dados
+        //se for right separa 2/3 para os dados e o terço seguinte para o logo
+        //se não houver logo centraliza dos dados do emitente
+        // coloca o logo
+        if (is_file($this->logomarca)) {
+            $logoInfo=getimagesize($this->logomarca);
+            //largura da imagem em mm
+            $logoWmm = ($logoInfo[0]/72)*25.4;
+            //altura da imagem em mm
+            $logoHmm = ($logoInfo[1]/72)*25.4;
+            if ($this->logoAlign=='L') {
+                $nImgW = round($w/3, 0);
+                $nImgH = round($logoHmm * ($nImgW/$logoWmm), 0);
+                $xImg = $x+1;
+                $yImg = round(($h-$nImgH)/2, 0)+$y;
+                //estabelecer posições do texto
+                $x1 = round($xImg + $nImgW +1, 0);
+                $y1 = round($h/3+$y, 0);
+                $tw = round(2*$w/3, 0);
+            } elseif ($this->logoAlign=='C') {
+                $nImgH = round($h/3, 0);
+                $nImgW = round($logoWmm * ($nImgH/$logoHmm), 0);
+                $xImg = round(($w-$nImgW)/2+$x, 0);
+                $yImg = $y+3;
+                $x1 = $x;
+                $y1 = round($yImg + $nImgH + 1, 0);
+                $tw = $w;
+            } elseif ($this->logoAlign=='R') {
+                $nImgW = round($w/3, 0);
+                $nImgH = round($logoHmm * ($nImgW/$logoWmm), 0);
+                $xImg = round($x+($w-(1+$nImgW)), 0);
+                $yImg = round(($h-$nImgH)/2, 0)+$y;
+                $x1 = $x;
+                $y1 = round($h/3+$y, 0);
+                $tw = round(2*$w/3, 0);
+            } elseif ($this->logoAlign=='F') {
+                $nImgH = round($h-5, 0);
+                $nImgW = round($logoWmm * ($nImgH/$logoHmm), 0);
+                $xImg = round(($w-$nImgW)/2+$x, 0);
+                $yImg = $y+3;
+                $x1 = $x;
+                $y1 = round($yImg + $nImgH + 1, 0);
+                $tw = $w;
             }
-            $n = count($this->aPag);
-            $node = $this->aPag[$n - 1]->getElementsByTagName("vTroco")->item(0);
-            if (!empty($node)) {
-                $this->aPag[$n - 1]->insertBefore($detPag, $node);
+            $this->pdf->Image($this->logomarca, $xImg, $yImg, $nImgW, $nImgH);
+        } else {
+            $x1 = $x;
+            $y1 = round($h/3+$y, 0);
+            $tw = $w;
+        }
+        // monta as informações apenas se diferente de full logo
+        if ($this->logoAlign !== 'F') {
+            //Nome emitente
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>12, 'style'=>'B');
+            $texto = $this->emit->getElementsByTagName("xNome")->item(0)->nodeValue;
+            $this->pTextBox($x1, $y1, $tw, 8, $texto, $aFont, 'T', 'C', 0, '');
+            //endereço
+            $y1 = $y1+5;
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'');
+            $fone = ! empty($this->enderEmit->getElementsByTagName("fone")->item(0)->nodeValue)
+                 ? $this->enderEmit->getElementsByTagName("fone")->item(0)->nodeValue
+                 : '';
+            $lgr = $this->pSimpleGetValue($this->enderEmit, "xLgr");
+            $nro = $this->pSimpleGetValue($this->enderEmit, "nro");
+            $cpl = $this->pSimpleGetValue($this->enderEmit, "xCpl", " - ");
+            $bairro = $this->pSimpleGetValue($this->enderEmit, "xBairro");
+            $CEP = $this->pSimpleGetValue($this->enderEmit, "CEP");
+            $CEP = $this->pFormat($CEP, "#####-###");
+            $mun = $this->pSimpleGetValue($this->enderEmit, "xMun");
+            $UF = $this->pSimpleGetValue($this->enderEmit, "UF");
+            $texto = $lgr . ", " . $nro . $cpl . "\n" . $bairro . " - "
+                    . $CEP . "\n" . $mun . " - " . $UF . " "
+                    . "Fone/Fax: " . $fone;
+            $this->pTextBox($x1, $y1, $tw, 8, $texto, $aFont, 'T', 'C', 0, '');
+        }
+
+        //####################################################################################
+        //coluna central Danfe
+        $x += $w;
+        $w=round($maxW * 0.17, 0);//35;
+        $w2 = $w;
+        $h = 32;
+        $this->pTextBox($x, $y, $w, $h);
+
+        if (! $this->pNotaCancelada()) {
+            // A PRINCIPIO NÃO PRECISAVA, POIS A NFE ESTÁ AUTORIZADA,
+            // SÓ SE RETIRA O DANFE PARA NOTAS NÃO AUTORIZADAS
+            $texto = "DANFE";
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>14, 'style'=>'B');
+            $this->pTextBox($x, $y+1, $w, $h, $texto, $aFont, 'T', 'C', 0, '');
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'');
+            $texto = 'Documento Auxiliar da Nota Fiscal Eletrônica';
+            $h = 20;
+            $this->pTextBox($x, $y+6, $w, $h, $texto, $aFont, 'T', 'C', 0, '', false);
+        }
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'');
+        $texto = '0 - ENTRADA';
+        $y1 = $y + 14;
+        $h = 8;
+        $this->pTextBox($x+2, $y1, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+        $texto = '1 - SAÍDA';
+        $y1 = $y + 17;
+        $this->pTextBox($x+2, $y1, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+        //tipo de nF
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>12, 'style'=>'B');
+        $y1 = $y + 13;
+        $h = 7;
+        $texto = $this->ide->getElementsByTagName('tpNF')->item(0)->nodeValue;
+        $this->pTextBox($x+27, $y1, 5, $h, $texto, $aFont, 'C', 'C', 1, '');
+        //numero da NF
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $y1 = $y + 20;
+        $numNF = str_pad($this->ide->getElementsByTagName('nNF')->item(0)->nodeValue, 9, "0", STR_PAD_LEFT);
+        $numNF = $this->pFormat($numNF, "#########");
+        $texto = "Nº. " . $numNF;
+        $this->pTextBox($x, $y1, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+        //Série
+        $y1 = $y + 23;
+        $serie = str_pad($this->ide->getElementsByTagName('serie')->item(0)->nodeValue, 3, "0", STR_PAD_LEFT);
+        $texto = "Série " . $serie;
+        $this->pTextBox($x, $y1, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+        //numero paginas
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'I');
+        $y1 = $y + 26;
+        $texto = "Folha " . $pag . "/" . $totPag;
+        $this->pTextBox($x, $y1, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+
+        //####################################################################################
+        //coluna codigo de barras
+        $x += $w;
+        $w = ($maxW-$w1-$w2);//85;
+        $w3 = $w;
+        $h = 32;
+        $this->pTextBox($x, $y, $w, $h);
+        $this->pdf->SetFillColor(0, 0, 0);
+        $chave_acesso = str_replace('NFe', '', $this->infNFe->getAttribute("Id"));
+        $bW = 75;
+        $bH = 12;
+        //codigo de barras
+        $this->pdf->Code128($x+(($w-$bW)/2), $y+2, $chave_acesso, $bW, $bH);
+        //linhas divisorias
+        $this->pdf->Line($x, $y+4+$bH, $x+$w, $y+4+$bH);
+        $this->pdf->Line($x, $y+12+$bH, $x+$w, $y+12+$bH);
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $y1 = $y+4+$bH;
+        $h = 7;
+        $texto = 'CHAVE DE ACESSO';
+        $this->pTextBox($x, $y1, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'B');
+        $y1 = $y+8+$bH;
+        $texto = $this->pFormat($chave_acesso, $this->formatoChave);
+        $this->pTextBox($x+2, $y1, $w-2, $h, $texto, $aFont, 'T', 'C', 0, '');
+        $y1 = $y+12+$bH;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'');
+        $chaveContingencia="";
+        if ($this->pNotaDPEC()) {
+            $cabecalhoProtoAutorizacao = 'NÚMERO DE REGISTRO EPEC';
+        } else {
+            $cabecalhoProtoAutorizacao = 'PROTOCOLO DE AUTORIZAÇÃO DE USO';
+        }
+        if (($this->tpEmis == 2 || $this->tpEmis == 5) && !$this->pNotaDPEC()) {
+            $cabecalhoProtoAutorizacao = "DADOS DA NF-E";
+            $chaveContingencia = $this->pGeraChaveAdicionalDeContingencia();
+            $this->pdf->SetFillColor(0, 0, 0);
+            //codigo de barras
+            $this->pdf->Code128($x+11, $y1+1, $chaveContingencia, $bW*.9, $bH/2);
+        } else {
+            $texto = 'Consulta de autenticidade no portal nacional da NF-e';
+            $this->pTextBox($x+2, $y1, $w-2, $h, $texto, $aFont, 'T', 'C', 0, '');
+            $y1 = $y+16+$bH;
+            $texto = 'www.nfe.fazenda.gov.br/portal ou no site da Sefaz Autorizadora';
+            $this->pTextBox(
+                $x+2,
+                $y1,
+                $w-2,
+                $h,
+                $texto,
+                $aFont,
+                'T',
+                'C',
+                0,
+                'http://www.nfe.fazenda.gov.br/portal ou no site da Sefaz Autorizadora'
+            );
+        }
+
+        //####################################################################################
+        //Dados da NF do cabeçalho
+        //natureza da operação
+        $texto = 'NATUREZA DA OPERAÇÃO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $w = $w1+$w2;
+        $y = $oldY;
+        $oldY += $h;
+        $x = $oldX;
+        $h = 7;
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = $this->ide->getElementsByTagName("natOp")->item(0)->nodeValue;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        $x += $w;
+        $w = $w3;
+        //PROTOCOLO DE AUTORIZAÇÃO DE USO ou DADOS da NF-E
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $cabecalhoProtoAutorizacao, $aFont, 'T', 'L', 1, '');
+        // algumas NFe podem estar sem o protocolo de uso portanto sua existencia deve ser
+        // testada antes de tentar obter a informação.
+        // NOTA : DANFE sem protocolo deve existir somente no caso de contingência !!!
+        // Além disso, existem várias NFes em contingência que eu recebo com protocolo de autorização.
+        // Na minha opinião, deveríamos mostra-lo, mas o  manual  da NFe v4.01 diz outra coisa...
+        if (($this->tpEmis == 2 || $this->tpEmis == 5) && !$this->pNotaDPEC()) {
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'B');
+            $texto = $this->pFormat($chaveContingencia, "#### #### #### #### #### #### #### #### ####");
+            $cStat = '';
+        } else {
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+            if ($this->pNotaDPEC()) {
+                $texto = $this->numero_registro_dpec;
+                $cStat = '';
             } else {
-                $this->dom->appChild($this->aPag[$n - 1], $detPag, 'Falta tag "Pag"');
+                if (isset($this->nfeProc)) {
+                    $texto = ! empty($this->nfeProc->getElementsByTagName("nProt")->item(0)->nodeValue) ?
+                            $this->nfeProc->getElementsByTagName("nProt")->item(0)->nodeValue : '';
+                    $tsHora = $this->pConvertTime($this->nfeProc->getElementsByTagName("dhRecbto")->item(0)->nodeValue);
+                    if ($texto != '') {
+                        $texto .= "  -  " . date('d/m/Y H:i:s', $tsHora);
+                    }
+                    $cStat = $this->nfeProc->getElementsByTagName("cStat")->item(0)->nodeValue;
+                } else {
+                    $texto = '';
+                    $cStat = '';
+                }
             }
+        }
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //####################################################################################
+        //INSCRIÇÃO ESTADUAL
+        $w = round($maxW * 0.333, 0);
+        $y += $h;
+        $oldY += $h;
+        $x = $oldX;
+        $texto = 'INSCRIÇÃO ESTADUAL';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = $this->pSimpleGetValue($this->emit, "IE");
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //INSCRIÇÃO ESTADUAL DO SUBST. TRIBUT.
+        $x += $w;
+        $texto = 'INSCRIÇÃO ESTADUAL DO SUBST. TRIBUT.';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = ! empty($this->emit->getElementsByTagName("IEST")->item(0)->nodeValue)
+             ? $this->emit->getElementsByTagName("IEST")->item(0)->nodeValue
+             : '';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //CNPJ
+        $x += $w;
+        $w = ($maxW-(2*$w));
+        $texto = 'CNPJ / CPF';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        //Pegando valor do CPF/CNPJ
+        if (! empty($this->emit->getElementsByTagName("CNPJ")->item(0)->nodeValue)) {
+            $texto = $this->pFormat(
+                $this->emit->getElementsByTagName("CNPJ")->item(0)->nodeValue,
+                "###.###.###/####-##"
+            );
+        } else {
+            $texto = ! empty($this->emit->getElementsByTagName("CPF")->item(0)->nodeValue) ?
+                $this->pFormat(
+                    $this->emit->getElementsByTagName("CPF")->item(0)->nodeValue,
+                    "###.###.###-##"
+                ) : '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
 
-            $this->detPag = $detPag;
-
-            return $detPag;
+        //####################################################################################
+        //Indicação de NF Homologação, cancelamento e falta de protocolo
+        $tpAmb = $this->ide->getElementsByTagName('tpAmb')->item(0)->nodeValue;
+        //indicar cancelamento
+        if ($this->pNotaCancelada()) {
+            //101 Cancelamento
+            $x = 10;
+            $y = $this->hPrint-130;
+            $h = 25;
+            $w = $maxW-(2*$x);
+            $this->pdf->SetTextColor(90, 90, 90);
+            $texto = "NFe CANCELADA";
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>48, 'style'=>'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $this->pdf->SetTextColor(0, 0, 0);
         }
 
+        if ($this->pNotaDPEC() || $this->tpEmis == 4) {
+            //DPEC
+            $x = 10;
+            $y = $this->hPrint-130;
+            $h = 25;
+            $w = $maxW-(2*$x);
+            $this->pdf->SetTextColor(200, 200, 200);
+            $texto = "DANFE impresso em contingência -\n".
+                     "EPEC regularmente recebido pela Receita\n".
+                     "Federal do Brasil";
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>48, 'style'=>'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $this->pdf->SetTextColor(0, 0, 0);
+        }
+        if ($this->pNotaDenegada()) {
+            //110 301 302 Denegada
+            $x = 10;
+            $y = $this->hPrint-130;
+            $h = 25;
+            $w = $maxW-(2*$x);
+            $this->pdf->SetTextColor(90, 90, 90);
+            $texto = "NFe USO DENEGADO";
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>48, 'style'=>'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $y += $h;
+            $h = 5;
+            $w = $maxW-(2*$x);
+            if (isset($this->infProt)) {
+                $xMotivo = $this->infProt->getElementsByTagName("xMotivo")->item(0)->nodeValue;
+            } else {
+                $xMotivo = '';
+            }
+            $texto = "SEM VALOR FISCAL\n".$xMotivo;
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>48, 'style'=>'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $this->pdf->SetTextColor(0, 0, 0);
+        }
+        //indicar sem valor
+        if ($tpAmb != 1) {
+            $x = 10;
+            if ($this->orientacao == 'P') {
+                $y = round($this->hPrint*2/3, 0);
+            } else {
+                $y = round($this->hPrint/2, 0);
+            }
+            $h = 5;
+            $w = $maxW-(2*$x);
+            $this->pdf->SetTextColor(90, 90, 90);
+            $texto = "SEM VALOR FISCAL";
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>48, 'style'=>'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>30, 'style'=>'B');
+            $texto = "AMBIENTE DE HOMOLOGAÇÃO";
+            $this->pTextBox($x, $y+14, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $this->pdf->SetTextColor(0, 0, 0);
+        } else {
+            $x = 10;
+            if ($this->orientacao == 'P') {
+                $y = round($this->hPrint*2/3, 0);
+            } else {
+                $y = round($this->hPrint/2, 0);
+            }//fim orientacao
+            $h = 5;
+            $w = $maxW-(2*$x);
+            $this->pdf->SetTextColor(90, 90, 90);
+            //indicar FALTA DO PROTOCOLO se NFe não for em contingência
+            if (($this->tpEmis == 2 || $this->tpEmis == 5) && !$this->pNotaDPEC()) {
+                //Contingência
+                $texto = "DANFE Emitido em Contingência";
+                $aFont = array('font'=>$this->fontePadrao, 'size'=>48, 'style'=>'B');
+                $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+                $aFont = array('font'=>$this->fontePadrao, 'size'=>30, 'style'=>'B');
+                $texto = "devido à problemas técnicos";
+                $this->pTextBox($x, $y+12, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            } else {
+                if (!isset($this->nfeProc)) {
+                    if (!$this->pNotaDPEC()) {
+                        $texto = "SEM VALOR FISCAL";
+                        $aFont = array('font'=>$this->fontePadrao, 'size'=>48, 'style'=>'B');
+                        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+                    }
+                    $aFont = array('font'=>$this->fontePadrao, 'size'=>30, 'style'=>'B');
+                    $texto = "FALTA PROTOCOLO DE APROVAÇÃO DA SEFAZ";
+                    if (!$this->pNotaDPEC()) {
+                        $this->pTextBox($x, $y+12, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+                    } else {
+                        $this->pTextBox($x, $y+25, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+                    }
+                }//fim nefProc
+            }//fim tpEmis
+            $this->pdf->SetTextColor(0, 0, 0);
+        }
+        return $oldY;
+    } //fim cabecalhoDANFE
+
+    /**
+     * destinatarioDANFE
+     * Monta o campo com os dados do destinatário na DANFE. (retrato e paisagem)
+     *
+     * @name   destinatarioDANFE
+     * @param  number $x Posição horizontal canto esquerdo
+     * @param  number $y Posição vertical canto superior
+     * @return number Posição vertical final
+     */
+    protected function pDestinatarioDANFE($x = 0, $y = 0)
+    {
+        //####################################################################################
+        //DESTINATÁRIO / REMETENTE
+        $oldX = $x;
+        $oldY = $y;
+        if ($this->orientacao == 'P') {
+            $maxW = $this->wPrint;
+        } else {
+            $maxW = $this->wPrint - $this->wCanhoto;
+        }
+        $w = $maxW;
+        $h = 7;
+        $texto = 'DESTINATÁRIO / REMETENTE';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+        //NOME / RAZÃO SOCIAL
+        $w = round($maxW*0.61, 0);
+        $w1 = $w;
+        $y += 3;
+        $texto = 'NOME / RAZÃO SOCIAL';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = $this->dest->getElementsByTagName("xNome")->item(0)->nodeValue;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+        } else {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 1, '');
+        }
+        //CNPJ / CPF
+        $x += $w;
+        $w = round($maxW*0.23, 0);
+        $w2 = $w;
+        $texto = 'CNPJ / CPF';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        //Pegando valor do CPF/CNPJ
+        if (! empty($this->dest->getElementsByTagName("CNPJ")->item(0)->nodeValue)) {
+            $texto = $this->pFormat(
+                $this->dest->getElementsByTagName("CNPJ")->item(0)->nodeValue,
+                "###.###.###/####-##"
+            );
+        } else {
+            $texto = ! empty($this->dest->getElementsByTagName("CPF")->item(0)->nodeValue) ?
+                    $this->pFormat(
+                        $this->dest->getElementsByTagName("CPF")->item(0)->nodeValue,
+                        "###.###.###-##"
+                    ) : '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //DATA DA EMISSÃO
+        $x += $w;
+        $w = $maxW-($w1+$w2);
+        $wx = $w;
+        $texto = 'DATA DA EMISSÃO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $dEmi = ! empty($this->ide->getElementsByTagName("dEmi")->item(0)->nodeValue) ?
+                $this->ide->getElementsByTagName("dEmi")->item(0)->nodeValue : '';
+        if ($dEmi == '') {
+            $dEmi = ! empty($this->ide->getElementsByTagName("dhEmi")->item(0)->nodeValue) ?
+                    $this->ide->getElementsByTagName("dhEmi")->item(0)->nodeValue : '';
+            $aDemi = explode('T', $dEmi);
+            $dEmi = $aDemi[0];
+        }
+        $texto = $this->pYmd2dmy($dEmi);
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        } else {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 1, '');
+        }
+        //ENDEREÇO
+        $w = round($maxW*0.47, 0);
+        $w1 = $w;
+        $y += $h;
+        $x = $oldX;
+        $texto = 'ENDEREÇO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = $this->dest->getElementsByTagName("xLgr")->item(0)->nodeValue;
+        $texto .= ', ' . $this->dest->getElementsByTagName("nro")->item(0)->nodeValue;
+        $texto .= $this->pSimpleGetValue($this->dest, "xCpl", " - ");
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '', true);
+        //BAIRRO / DISTRITO
+        $x += $w;
+        $w = round($maxW*0.21, 0);
+        $w2 = $w;
+        $texto = 'BAIRRO / DISTRITO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = $this->dest->getElementsByTagName("xBairro")->item(0)->nodeValue;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //CEP
+        $x += $w;
+        $w = $maxW-$w1-$w2-$wx;
+        $w2 = $w;
+        $texto = 'CEP';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = ! empty($this->dest->getElementsByTagName("CEP")->item(0)->nodeValue) ?
+                $this->dest->getElementsByTagName("CEP")->item(0)->nodeValue : '';
+        $texto = $this->pFormat($texto, "#####-###");
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //DATA DA SAÍDA
+        $x += $w;
+        $w = $wx;
+        $texto = 'DATA DA SAÍDA/ENTRADA';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $dSaiEnt = ! empty($this->ide->getElementsByTagName("dSaiEnt")->item(0)->nodeValue) ?
+                $this->ide->getElementsByTagName("dSaiEnt")->item(0)->nodeValue : '';
+        if ($dSaiEnt == '') {
+            $dSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
+                    $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
+            $aDsaient = explode('T', $dSaiEnt);
+            $dSaiEnt = $aDsaient[0];
+        }
+        $texto = $this->pYmd2dmy($dSaiEnt);
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //MUNICÍPIO
+        $w = $w1;
+        $y += $h;
+        $x = $oldX;
+        $texto = 'MUNICÍPIO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = $this->dest->getElementsByTagName("xMun")->item(0)->nodeValue;
+        if (strtoupper(trim($texto)) == "EXTERIOR" && $this->dest->getElementsByTagName("xPais")->length > 0) {
+            $texto .= " - " .  $this->dest->getElementsByTagName("xPais")->item(0)->nodeValue;
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+        //UF
+        $x += $w;
+        $w = 8;
+        $texto = 'UF';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = $this->dest->getElementsByTagName("UF")->item(0)->nodeValue;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //FONE / FAX
+        $x += $w;
+        $w = round(($maxW -$w1-$wx-8)/2, 0);
+        $w3 = $w;
+        $texto = 'FONE / FAX';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = ! empty($this->dest->getElementsByTagName("fone")->item(0)->nodeValue) ?
+                $this->dest->getElementsByTagName("fone")->item(0)->nodeValue : '';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //INSCRIÇÃO ESTADUAL
+        $x += $w;
+        $w = $maxW -$w1-$wx-8-$w3;
+        $texto = 'INSCRIÇÃO ESTADUAL';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $IE = $this->dest->getElementsByTagName("IE");
+        $texto = ($IE && $IE->length > 0) ? $IE->item(0)->nodeValue : '';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //HORA DA SAÍDA
+        $x += $w;
+        $w = $wx;
+        $texto = 'HORA DA SAÍDA/ENTRADA';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $hSaiEnt = ! empty($this->ide->getElementsByTagName("hSaiEnt")->item(0)->nodeValue) ?
+                $this->ide->getElementsByTagName("hSaiEnt")->item(0)->nodeValue : '';
+        if ($hSaiEnt == '') {
+            $dhSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
+                    $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
+            $tsDhSaiEnt = $this->pConvertTime($dhSaiEnt);
+            if ($tsDhSaiEnt != '') {
+                $hSaiEnt = date('H:i:s', $tsDhSaiEnt);
+            }
+        }
+        $texto = $hSaiEnt;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        return ($y + $h);
+    } //fim da função destinatarioDANFE
+
+     /**
+     * pGetTextoFatura
+     * Gera a String do Texto da Fatura
+      *
+     * @name   getTextoFatura
+     * @return a String com o texto ou "";
+     */
+    protected function pGetTextoFatura()
+    {
+        if (isset($this->cobr)) {
+            $fat = $this->cobr->getElementsByTagName("fat")->item(0);
+            if (isset($fat)) {
+                $textoIndPag="";
+                $indPag = $this->pSimpleGetValue($this->ide, "indPag");
+                if ($indPag == 0) {
+                    $textoIndPag = "Pagamento à Vista - ";
+                } elseif ($indPag == 1) {
+                    $textoIndPag = "Pagamento à Prazo - ";
+                }
+                $nFat = $this->pSimpleGetValue($fat, "nFat", "Fatura: ");
+                $vOrig = $this->pSimpleGetValue($fat, "vOrig", " Valor Original: ");
+                $vDesc = $this->pSimpleGetValue($fat, "vDesc", " Desconto: ");
+                $vLiq = $this->pSimpleGetValue($fat, "vLiq", " Valor Líquido: ");
+                $texto = $textoIndPag . $nFat . $vOrig . $vDesc . $vLiq;
+                return $texto;
+            }
+        }
+        return "";
+    } //fim getTextoFatura
+
+     /**
+     * pSizeExtraTextoFatura
+     * Calcula o espaço ocupado pelo texto da fatura. Este espaço só é utilizado quando não houver duplicata.
+      *
+     * @name   pSizeExtraTextoFatura
+     * @return integer
+     */
+    protected function pSizeExtraTextoFatura()
+    {
+        $textoFatura = $this->pGetTextoFatura();
+        //verificar se existem duplicatas
+        if ($this->dup->length == 0 && $textoFatura !== "") {
+            return 10;
+        }
+        return 0;
+    }
+
+    /**
+     * faturaDANFE
+     * Monta o campo de duplicatas da DANFE (retrato e paisagem)
+     *
+     * @name   faturaDANFE
+     * @param  number $x Posição horizontal canto esquerdo
+     * @param  number $y Posição vertical canto superior
+     * @return number Posição vertical final
+     */
+    protected function pFaturaDANFE($x, $y)
+    {
+        $linha = 1;
+        $h = 8+3;
+        $oldx = $x;
+        $textoFatura = $this->pGetTextoFatura();
+        //verificar se existem duplicatas
+        if ($this->dup->length > 0 || $textoFatura !== "") {
+            //#####################################################################
+            //FATURA / DUPLICATA
+            $texto = "FATURA / DUPLICATA";
+            if ($this->orientacao == 'P') {
+                $w = $this->wPrint;
+            } else {
+                $w = 271;
+            }
+            $h = 8;
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $y += 3;
+            $dups = "";
+            $dupcont = 0;
+            $nFat = $this->dup->length;
+            if ($textoFatura !== "" && $this->exibirTextoFatura) {
+                $myH=6;
+                $myW = $this->wPrint;
+                if ($this->orientacao == 'L') {
+                    $myW -= $this->wCanhoto;
+                }
+                $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'');
+                $this->pTextBox($x, $y, $myW, $myH, $textoFatura, $aFont, 'C', 'L', 1, '');
+                $y+=$myH+1;
+            }
+            if ($this->orientacao == 'P') {
+                $w = round($this->wPrint/7.018, 0)-1;
+            } else {
+                $w = 28;
+            }
+            $increm = 1;
+            foreach ($this->dup as $k => $d) {
+                $nDup = ! empty($this->dup->item($k)->getElementsByTagName('nDup')->item(0)->nodeValue) ?
+                        $this->dup->item($k)->getElementsByTagName('nDup')->item(0)->nodeValue : '';
+                $dDup = ! empty($this->dup->item($k)->getElementsByTagName('dVenc')->item(0)->nodeValue) ?
+                        $this->pYmd2dmy($this->dup->item($k)->getElementsByTagName('dVenc')->item(0)->nodeValue) : '';
+                $vDup = ! empty($this->dup->item($k)->getElementsByTagName('vDup')->item(0)->nodeValue) ?
+                        'R$ ' . number_format(
+                            $this->dup->item($k)->getElementsByTagName('vDup')->item(0)->nodeValue,
+                            2,
+                            ",",
+                            "."
+                        ) : '';
+                $h = 8;
+                $texto = '';
+                if ($nDup!='0' && $nDup!='') {
+                    $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+                    $this->pTextBox($x, $y, $w, $h, 'Num.', $aFont, 'T', 'L', 1, '');
+                    $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+                    $this->pTextBox($x, $y, $w, $h, $nDup, $aFont, 'T', 'R', 0, '');
+                } else {
+                    $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+                    $this->pTextBox($x, $y, $w, $h, ($dupcont+1)."", $aFont, 'T', 'L', 1, '');
+                }
+                $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+                $this->pTextBox($x, $y, $w, $h, 'Venc.', $aFont, 'C', 'L', 0, '');
+                $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+                $this->pTextBox($x, $y, $w, $h, $dDup, $aFont, 'C', 'R', 0, '');
+                $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+                $this->pTextBox($x, $y, $w, $h, 'Valor', $aFont, 'B', 'L', 0, '');
+                $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+                $this->pTextBox($x, $y, $w, $h, $vDup, $aFont, 'B', 'R', 0, '');
+                $x += $w+$increm;
+                $dupcont += 1;
+                if ($this->orientacao == 'P') {
+                    $maxDupCont = 6;
+                } else {
+                    $maxDupCont = 8;
+                }
+                if ($dupcont > $maxDupCont) {
+                    $y += 9;
+                    $x = $oldx;
+                    $dupcont = 0;
+                    $linha += 1;
+                }
+                if ($linha == 5) {
+                    $linha = 4;
+                    break;
+                }
+            }
+            if ($dupcont == 0) {
+                $y -= 9;
+                $linha--;
+            }
+            return ($y+$h);
+        } else {
+            $linha = 0;
+            return ($y-2);
+        }
+    } //fim da função faturaDANFE
+
+    /**
+     * impostoDanfeHelper
+     * Auxilia a montagem dos campos de impostos e totais da DANFE
+     *
+     * @name   impostoDanfeHelper
+     * @param  float $x Posição horizontal canto esquerdo
+     * @param  float $y Posição vertical canto superior
+     * @param  float $w Largura do campo
+     * @param  float $h Altura do campo
+     * @param  float $h Título do campo
+     * @param  float $h Valor do imposto
+     * @return float Sugestão do $x do próximo imposto
+     */
+    protected function pImpostoDanfeHelper($x, $y, $w, $h, $titulo, $campoImposto)
+    {
+        $valorImposto = '0, 00';
+        $the_field = $this->ICMSTot->getElementsByTagName($campoImposto)->item(0);
+        if (isset($the_field)) {
+            $the_value = $the_field->nodeValue;
+            if (!empty($the_value)) {
+                $valorImposto = number_format($the_value, 2, ",", ".");
+            }
+        }
+
+        $fontTitulo = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $fontValor = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $titulo, $fontTitulo, 'T', 'L', 1, '');
+        $this->pTextBox($x, $y, $w, $h, $valorImposto, $fontValor, 'B', 'R', 0, '');
+
+        $next_x = $x + $w;
+        return $next_x;
+    }
+
+    /**
+     * impostoDANFE
+     * Monta o campo de impostos e totais da DANFE (retrato e paisagem)
+     *
+     * @param  number $x Posição horizontal canto esquerdo
+     * @param  number $y Posição vertical canto superior
+     * @return number Posição vertical final
+     */
+    protected function pImpostoDANFE($x, $y)
+    {
+        $x_inicial = $x;
+        //#####################################################################
+
+
+        $campos_por_linha = 9;
+        if (!$this->exibirPIS) {
+            $campos_por_linha--;
+        }
+        if (!$this->exibirIcmsInterestadual) {
+            $campos_por_linha -= 2;
+        }
+
+        if ($this->orientacao == 'P') {
+            $maxW = $this->wPrint;
+            $title_size = 31;
+        } else {
+            $maxW = $this->wPrint - $this->wCanhoto;
+            $title_size = 40;
+        }
+        $w = $maxW / $campos_por_linha;
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+        $texto = "CÁLCULO DO IMPOSTO";
+        $this->pTextBox($x, $y, $title_size, 8, $texto, $aFont, 'T', 'L', 0, '');
+        $y += 3;
+        $h = 7;
+
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "BASE DE CÁLC. DO ICMS", "vBC");
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO ICMS", "vICMS");
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "BASE DE CÁLC. ICMS S.T.", "vBCST");
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO ICMS SUBST.", "vST");
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "V. IMP. IMPORTAÇÃO", "vII");
+
+        if ($this->exibirIcmsInterestadual) {
+            $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "V. ICMS UF REMET.", "vICMSUFRemet");
+            $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FCP", "vFCP");
+        }
+
+        if ($this->exibirPIS) {
+            $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO PIS", "vPIS");
+        }
+
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "V. TOTAL PRODUTOS", "vProd");
+
+        //
+
+        $y += $h;
+        $x = $x_inicial;
+
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FRETE", "vFrete");
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO SEGURO", "vSeg");
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "DESCONTO", "vDesc");
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "OUTRAS DESPESAS", "vOutro");
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR TOTAL IPI", "vIPI");
+
+        if ($this->exibirIcmsInterestadual) {
+            $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "V. ICMS UF DEST.", "vICMSUFDest");
+            $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "V. TOT. TRIB.", "vTotTrib");
+        }
+
+        if ($this->exibirPIS) {
+            $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DA COFINS", "vCOFINS");
+        }
+        $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "V. TOTAL DA NOTA", "vNF");
+
+        return ($y+$h);
+    } //fim impostoDANFE
+
+    /**
+     * transporteDANFE
+     * Monta o campo de transportes da DANFE (retrato e paisagem)
+     *
+     * @name   transporteDANFE
+     * @param  float $x Posição horizontal canto esquerdo
+     * @param  float $y Posição vertical canto superior
+     * @return float Posição vertical final
+     */
+    protected function pTransporteDANFE($x, $y)
+    {
+        $oldX = $x;
+        if ($this->orientacao == 'P') {
+            $maxW = $this->wPrint;
+        } else {
+            $maxW = $this->wPrint - $this->wCanhoto;
+        }
+        //#####################################################################
+        //TRANSPORTADOR / VOLUMES TRANSPORTADOS
+        $texto = "TRANSPORTADOR / VOLUMES TRANSPORTADOS";
+        $w = $maxW;
+        $h = 7;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+        //NOME / RAZÃO SOCIAL
+        $w1 = $maxW*0.29;
+        $y += 3;
+        $texto = 'NOME / RAZÃO SOCIAL';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->transporta)) {
+            $texto = ! empty($this->transporta->getElementsByTagName("xNome")->item(0)->nodeValue) ?
+                    $this->transporta->getElementsByTagName("xNome")->item(0)->nodeValue : '';
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'B', 'L', 0, '');
+        //FRETE POR CONTA
+        $x += $w1;
+        $w2 = $maxW*0.15;
+        $texto = 'FRETE POR CONTA';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $tipoFrete = ! empty($this->transp->getElementsByTagName("modFrete")->item(0)->nodeValue) ?
+                $this->transp->getElementsByTagName("modFrete")->item(0)->nodeValue : '0';
+        switch ($tipoFrete) {
+            case 0:
+                $texto = "(0) Emitente";
+                break;
+            case 1:
+                $texto = "(1) Dest/Rem";
+                break;
+            case 2:
+                $texto = "(2) Terceiros";
+                break;
+            case 9:
+                $texto = "(9) Sem Frete";
+                break;
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'C', 'C', 1, '');
+        //CÓDIGO ANTT
+        $x += $w2;
+        $texto = 'CÓDIGO ANTT';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->veicTransp)) {
+            $texto = ! empty($this->veicTransp->getElementsByTagName("RNTC")->item(0)->nodeValue) ?
+                    $this->veicTransp->getElementsByTagName("RNTC")->item(0)->nodeValue : '';
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //PLACA DO VEÍC
+        $x += $w2;
+        $texto = 'PLACA DO VEÍCULO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->veicTransp)) {
+            $texto = ! empty($this->veicTransp->getElementsByTagName("placa")->item(0)->nodeValue) ?
+                    $this->veicTransp->getElementsByTagName("placa")->item(0)->nodeValue : '';
+        } elseif (isset($this->reboque)) {
+            $texto = ! empty($this->reboque->getElementsByTagName("placa")->item(0)->nodeValue) ?
+                    $this->reboque->getElementsByTagName("placa")->item(0)->nodeValue : '';
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //UF
+        $x += $w2;
+        $w3 = round($maxW*0.04, 0);
+        $texto = 'UF';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w3, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->veicTransp)) {
+            $texto = ! empty($this->veicTransp->getElementsByTagName("UF")->item(0)->nodeValue) ?
+                    $this->veicTransp->getElementsByTagName("UF")->item(0)->nodeValue : '';
+        } elseif (isset($this->reboque)) {
+            $texto = ! empty($this->reboque->getElementsByTagName("UF")->item(0)->nodeValue) ?
+                    $this->reboque->getElementsByTagName("UF")->item(0)->nodeValue : '';
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w3, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //CNPJ / CPF
+        $x += $w3;
+        $w = $maxW-($w1+3*$w2+$w3);
+        $texto = 'CNPJ / CPF';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->transporta)) {
+            $texto = ! empty($this->transporta->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
+                    $this->pFormat(
+                        $this->transporta->getElementsByTagName("CNPJ")->item(0)->nodeValue,
+                        "##.###.###/####-##"
+                    ) : '';
+            if ($texto == '') {
+                $texto = ! empty($this->transporta->getElementsByTagName("CPF")->item(0)->nodeValue) ?
+                        $this->pFormat(
+                            $this->transporta->getElementsByTagName("CPF")->item(0)->nodeValue,
+                            "###.###.###-##"
+                        ) : '';
+            }
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //#####################################################################
+        //ENDEREÇO
+        $y += $h;
+        $x = $oldX;
+        $h = 7;
+        $w1 = $maxW*0.44;
+        $texto = 'ENDEREÇO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->transporta)) {
+            $texto = ! empty($this->transporta->getElementsByTagName("xEnder")->item(0)->nodeValue) ?
+                    $this->transporta->getElementsByTagName("xEnder")->item(0)->nodeValue : '';
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'B', 'L', 0, '');
+        //MUNICÍPIO
+        $x += $w1;
+        $w2 = round($maxW*0.30, 0);
+        $texto = 'MUNICÍPIO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->transporta)) {
+            $texto = ! empty($this->transporta->getElementsByTagName("xMun")->item(0)->nodeValue) ?
+                    $this->transporta->getElementsByTagName("xMun")->item(0)->nodeValue : '';
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //UF
+        $x += $w2;
+        $w3 = round($maxW*0.04, 0);
+        $texto = 'UF';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w3, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->transporta)) {
+            $texto = ! empty($this->transporta->getElementsByTagName("UF")->item(0)->nodeValue) ?
+                    $this->transporta->getElementsByTagName("UF")->item(0)->nodeValue : '';
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w3, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //INSCRIÇÃO ESTADUAL
+        $x += $w3;
+        $w = $maxW-($w1+$w2+$w3);
+        $texto = 'INSCRIÇÃO ESTADUAL';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = '';
+        if (isset($this->transporta)) {
+            if (! empty($this->transporta->getElementsByTagName("IE")->item(0)->nodeValue)) {
+                $texto = $this->transporta->getElementsByTagName("IE")->item(0)->nodeValue;
+            }
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //Tratar Multiplos volumes
+        $volumes = $this->transp->getElementsByTagName('vol');
+        $quantidade = 0;
+        $especie = '';
+        $marca = '';
+        $numero = '';
+        $texto = '';
+        $pesoBruto=0;
+        $pesoLiquido=0;
+        foreach ($volumes as $volume) {
+            $quantidade += ! empty($volume->getElementsByTagName("qVol")->item(0)->nodeValue) ?
+                    $volume->getElementsByTagName("qVol")->item(0)->nodeValue : 0;
+            $pesoBruto += ! empty($volume->getElementsByTagName("pesoB")->item(0)->nodeValue) ?
+                    $volume->getElementsByTagName("pesoB")->item(0)->nodeValue : 0;
+            $pesoLiquido += ! empty($volume->getElementsByTagName("pesoL")->item(0)->nodeValue) ?
+                    $volume->getElementsByTagName("pesoL")->item(0)->nodeValue : 0;
+            $texto = ! empty($this->transp->getElementsByTagName("esp")->item(0)->nodeValue) ?
+                    $this->transp->getElementsByTagName("esp")->item(0)->nodeValue : '';
+            if ($texto != $especie && $especie != '') {
+                //tem várias especies
+                $especie = 'VARIAS';
+            } else {
+                $especie = $texto;
+            }
+            $texto = ! empty($this->transp->getElementsByTagName("marca")->item(0)->nodeValue) ?
+                    $this->transp->getElementsByTagName("marca")->item(0)->nodeValue : '';
+            if ($texto != $marca && $marca != '') {
+                //tem várias especies
+                $marca = 'VARIAS';
+            } else {
+                $marca = $texto;
+            }
+            $texto = ! empty($this->transp->getElementsByTagName("nVol")->item(0)->nodeValue) ?
+                    $this->transp->getElementsByTagName("nVol")->item(0)->nodeValue : '';
+            if ($texto != $numero && $numero != '') {
+                //tem várias especies
+                $numero = 'VARIOS';
+            } else {
+                $numero = $texto;
+            }
+        }
+
+        //#####################################################################
+        //QUANTIDADE
+        $y += $h;
+        $x = $oldX;
+        $h = 7;
+        $w1 = round($maxW*0.10, 0);
+        $texto = 'QUANTIDADE';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (!empty($quantidade)) {
+            $texto = $quantidade;
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+            $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'B', 'C', 0, '');
+        }
+        //ESPÉCIE
+        $x += $w1;
+        $w2 = round($maxW*0.17, 0);
+        $texto = 'ESPÉCIE';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = $especie;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //MARCA
+        $x += $w2;
+        $texto = 'MARCA';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = ! empty($this->transp->getElementsByTagName("marca")->item(0)->nodeValue) ?
+                $this->transp->getElementsByTagName("marca")->item(0)->nodeValue : '';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //NUMERAÇÃO
+        $x += $w2;
+        $texto = 'NUMERAÇÃO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'T', 'L', 1, '');
+        $texto = $numero;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'B', 'C', 0, '');
+        //PESO BRUTO
+        $x += $w2;
+        $w3 = round($maxW*0.20, 0);
+        $texto = 'PESO BRUTO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w3, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (is_numeric($pesoBruto) && $pesoBruto > 0) {
+            $texto = number_format($pesoBruto, 3, ",", ".");
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w3, $h, $texto, $aFont, 'B', 'R', 0, '');
+        //PESO LÍQUIDO
+        $x += $w3;
+        $w = $maxW -($w1+3*$w2+$w3);
+        $texto = 'PESO LÍQUIDO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (is_numeric($pesoLiquido) && $pesoLiquido > 0) {
+            $texto = number_format($pesoLiquido, 3, ",", ".");
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'R', 0, '');
+        return ($y+$h);
+    } //fim transporteDANFE
+
+
+
+    protected function pDescricaoProdutoHelper($origem, $campo, $formato)
+    {
+        $valor_original = $origem->getElementsByTagName($campo)->item(0);
+        if (!isset($valor_original)) {
+            return "";
+        }
+        $valor_original = $valor_original->nodeValue;
+        $valor = ! empty($valor_original) ? number_format($valor_original, 2, ",", ".") : '';
+
+        if ($valor != "") {
+            return sprintf($formato, $valor);
+        }
+        return "";
+    }
+
+    /**
+     * descricaoProduto
+     * Monta a string de descrição de cada Produto
+     *
+     * @name   descricaoProduto
+     * @param  DOMNode itemProd
+     * @return string descricao do produto
+     */
+    protected function pDescricaoProduto($itemProd)
+    {
+        $prod = $itemProd->getElementsByTagName('prod')->item(0);
+        $ICMS = $itemProd->getElementsByTagName("ICMS")->item(0);
+        $ICMSUFDest = $itemProd->getElementsByTagName("ICMSUFDest")->item(0);
+        $impostos = '';
+
+        if (!empty($ICMS)) {
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMS, "pRedBC", " pRedBC=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMS, "pMVAST", " IVA=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMS, "pICMSST", " pIcmsSt=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMS, "vBCST", " BcIcmsSt=%s");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMS, "vICMSST", " vIcmsSt=%s");
+        }
+
+        if (!empty($ICMSUFDest)) {
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "pFCPUFDest", " pFCPUFDest=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "pICMSUFDest", " pICMSUFDest=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "pICMSInterPart", " pICMSInterPart=%s%%");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "vFCPUFDest", " vFCPUFDest=%s");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "vICMSUFDest", " vICMSUFDest=%s");
+            // $impostos .= $this->pDescricaoProdutoHelper($ICMSUFDest, "vICMSUFRemet", " vICMSUFRemet=%s");
+        }
+
+        $infAdProd = ! empty($itemProd->getElementsByTagName('infAdProd')->item(0)->nodeValue) ?
+                substr($this->pAnfavea($itemProd->getElementsByTagName('infAdProd')->item(0)->nodeValue), 0, 500) : '';
+        if (! empty($infAdProd)) {
+            $infAdProd = trim($infAdProd);
+            $infAdProd .= ' ';
+        }
+        $medTxt='';
+        $med = $prod->getElementsByTagName("med");
+        if (isset($med)) {
+            $i = 0;
+            while ($i < $med->length) {
+                $medTxt .= $this->pSimpleGetValue($med->item($i), 'nLote', ' Lote: ');
+                $medTxt .= $this->pSimpleGetValue($med->item($i), 'qLote', ' Quant: ');
+                $medTxt .= $this->pSimpleGetDate($med->item($i), 'dFab', ' Fab: ');
+                $medTxt .= $this->pSimpleGetDate($med->item($i), 'dVal', ' Val: ');
+                $medTxt .= $this->pSimpleGetValue($med->item($i), 'vPMC', ' PMC: ');
+                $i++;
+            }
+            if ($medTxt != '') {
+                $medTxt.= ' ';
+            }
+        }
+        //NT2013.006 FCI
+        $nFCI = (! empty($itemProd->getElementsByTagName('nFCI')->item(0)->nodeValue)) ?
+                ' FCI:'.$itemProd->getElementsByTagName('nFCI')->item(0)->nodeValue : '';
+        $tmp_ad = ($this->descProdInfoComplemento ? $medTxt . $impostos . $nFCI : '');
+        $texto = $prod->getElementsByTagName("xProd")->item(0)->nodeValue . (strlen($tmp_ad)!=0?"\n    ".$tmp_ad:'');
+
+        // if ( trim($infAdProd) ){
+        //     $texto .= "\n" . $infAdProd;
+        // }
+
+        if ($this->descProdQuebraLinha) {
+            $texto = str_replace(";", "\n", $texto);
+        }
+        return $texto;
+    }
+
+    /**
+     * itensDANFE
+     * Monta o campo de itens da DANFE (retrato e paisagem)
+     *
+     * @name   itensDANFE
+     * @param  float $x       Posição horizontal canto esquerdo
+     * @param  float $y       Posição vertical canto superior
+     * @param  float $nInicio Número do item inicial
+     * @param  float $max     Número do item final
+     * @param  float $hmax    Altura máxima do campo de itens em mm
+     * @return float Posição vertical final
+     */
+    protected function pItensDANFE($x, $y, &$nInicio, $hmax, $pag = 0, $totpag = 0, $hCabecItens = 7, $hasTagMed = false)
+    {
+        $oldX = $x;
+        $oldY = $y;
+        $totItens = $this->det->length;
+        //#####################################################################
+        //DADOS DOS PRODUTOS / SERVIÇOS
+        $texto = "DADOS DOS PRODUTOS / SERVIÇOS ";
+        if ($this->orientacao == 'P') {
+            $w = $this->wPrint;
+        } else {
+            if ($nInicio < 2) { // primeira página
+                $w = $this->wPrint - $this->wCanhoto;
+            } else { // páginas seguintes
+                $w = $this->wPrint;
+            }
+        }
+        $h = 4;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+        $y += 3;
+        //desenha a caixa dos dados dos itens da NF
+        $hmax += 1;
+        $texto = '';
+        $this->pTextBox($x, $y, $w, $hmax);
+        //##################################################################################
+        // cabecalho LOOP COM OS DADOS DOS PRODUTOS
+        //CÓDIGO PRODUTO
+        $texto = "CÓDIGO PRODUTO";
+        $w1 = round($w*0.09, 0);
+        $h = 4;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w1, $y, $x+$w1, $y+$hmax);
+        //DESCRIÇÃO DO PRODUTO / SERVIÇO
+        $x += $w1;
+        
+        if($hasTagMed){
+            $w2 = round($w*0.25, 0);
+        }else{
+            $w2 = round($w*0.30, 0);
+        }
+
+        $texto = 'DESCRIÇÃO DO PRODUTO / SERVIÇO';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w2, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w2, $y, $x+$w2, $y+$hmax);
+
+        if($hasTagMed){
+            //MED LOTE
+            $x += $w2;
+            $wLote = round($w*0.06, 0);
+            $texto = 'LOTE';
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+            $this->pTextBox($x, $y, $wLote, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+            $this->pdf->Line($x+$wLote, $y, $x+$wLote, $y+$hmax);
+
+
+            //MED PMC
+            $x += $wLote;
+            $wPMC = round($w*0.04, 0);
+            $texto = 'PMC';
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+            $this->pTextBox($x, $y, $wPMC, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+            $this->pdf->Line($x+$wPMC, $y, $x+$wPMC, $y+$hmax);
+        }else{
+            $wPMC = $w2;
+        }
+
+        //NCM/SH
+        $x += $wPMC;
+        $w3 = round($w*0.06, 0);
+        $texto = 'NCM/SH';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w3, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w3, $y, $x+$w3, $y+$hmax);
+        //O/CST ou O/CSOSN
+        $x += $w3;
+        $w4 = round($w*0.05, 0);
+        $texto = 'O/CSOSN';//Regime do Simples CRT = 1 ou CRT = 2
+        if ($this->pSimpleGetValue($this->emit, 'CRT') == '3') {
+             $texto = 'O/CST';//Regime Normal
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w4, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w4, $y, $x+$w4, $y+$hmax);
+        //CFOP
+        $x += $w4;
+        $w5 = round($w*0.04, 0);
+        $texto = 'CFOP';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w5, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w5, $y, $x+$w5, $y+$hmax);
+        //UN
+        $x += $w5;
+        $w6 = round($w*0.03, 0);
+        $texto = 'UN';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w6, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w6, $y, $x+$w6, $y+$hmax);
+        //QUANT
+        $x += $w6;
+        $w7 = round($w*0.07, 0);
+        $texto = 'QUANT';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w7, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w7, $y, $x+$w7, $y+$hmax);
+        //VALOR UNIT
+        $x += $w7;
+        $w8 = round($w*0.06, 0);
+        $texto = 'VALOR UNIT';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w8, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w8, $y, $x+$w8, $y+$hmax);
+        //VALOR TOTAL
+        $x += $w8;
+        $w9 = round($w*0.06, 0);
+        $texto = 'VALOR TOTAL';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w9, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w9, $y, $x+$w9, $y+$hmax);
+        //B.CÁLC ICMS
+        $x += $w9;
+        $w10 = round($w*0.06, 0);
+        $texto = 'B.CÁLC ICMS';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w10, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w10, $y, $x+$w10, $y+$hmax);
+        //VALOR ICMS
+        $x += $w10;
+        $w11 = round($w*0.06, 0);
+        $texto = 'VALOR ICMS';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w11, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w11, $y, $x+$w11, $y+$hmax);
+        //VALOR IPI
+        $x += $w11;
+        $w12 = round($w*0.05, 0);
+        $texto = 'VALOR IPI';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w12, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w12, $y, $x+$w12, $y+$hmax);
+        //ALÍQ. ICMS
+        $x += $w12;
+        $w13 = round($w*0.035, 0);
+        $texto = 'ALÍQ. ICMS';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w13, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($x+$w13, $y, $x+$w13, $y+$hmax);
+        //ALÍQ. IPI
+        $x += $w13;
+        $w14 = $w-($w1+$w2+$w3+$w4+$w5+$w6+$w7+$w8+$w9+$w10+$w11+$w12+$w13);
+        $texto = 'ALÍQ. IPI';
+        $this->pTextBox($x, $y, $w14, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+        $this->pdf->Line($oldX, $y+$h+1, $oldX + $w, $y+$h+1);
+        $y += 5;
+        //##################################################################################
+        // LOOP COM OS DADOS DOS PRODUTOS
+        $i = 0;
+        $hUsado = $hCabecItens;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
+        $aFontFCI = array('font'=>$this->fontePadrao, 'size'=>5.7, 'style'=>'');
+        foreach ($this->det as $d) {
+            if ($i >= $nInicio) {
+                $thisItem = $this->det->item($i);
+                //carrega as tags do item
+                $prod = $thisItem->getElementsByTagName("prod")->item(0);
+                $infAprod =  $thisItem->getElementsByTagName("infAdProd")->item(0);
+                $imposto = $this->det->item($i)->getElementsByTagName("imposto")->item(0);
+                $ICMS = $imposto->getElementsByTagName("ICMS")->item(0);
+                $IPI  = $imposto->getElementsByTagName("IPI")->item(0);
+                $textoProduto = $this->pDescricaoProduto($thisItem);
+                
+                $textoExplode = explode(chr(10), $textoProduto);
+
+                if (count($textoExplode) > 1){
+
+                    $textoProduto = $textoExplode[0];
+
+                    unset($textoExplode[0]); 
+
+                    $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
+
+                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);   
+
+                    $textoExplode = implode('\n', $textoExplode);
+
+                    $linhaDescr = $this->pGetNumLines($textoExplode, $w2, $aFontFCI);
+
+                    $h2 = $h;
+
+                    $h = $h + round(($linhaDescr * $this->pdf->FontSize) + ($linhaDescr * 0.5), 2);
+
+                } else {
+
+                    $textoExplode = null;
+
+                    $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
+
+                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);   
+                }
+                $hUsado += $h;
+                if ($pag != $totpag) {
+                    if ($hUsado >= $hmax && $i < $totItens) {
+                        //ultrapassa a capacidade para uma única página
+                        //o restante dos dados serão usados nas proximas paginas
+                        $nInicio = $i;
+                        break;
+                    }
+                }
+
+                $y_linha=$y+$h;
+                // linha entre itens
+                $this->pdf->DashedHLine($oldX, $y_linha, $w, 0.1, 120);
+                //corrige o x
+                $x=$oldX;
+                //codigo do produto
+                $texto = $prod->getElementsByTagName("cProd")->item(0)->nodeValue;
+
+                $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'T', 'C', 0, '');
+                $x += $w1;
+                //DESCRIÇÃO
+                if ($this->orientacao == 'P') {
+                    $this->pTextBox($x, $y, $w2, $h, $textoProduto, $aFont, 'T', 'L', 0, '', false);
+                } else {
+                    $this->pTextBox($x, $y, $w2, $h, $textoProduto, $aFont, 'T', 'L', 0, '', false);
+                }
+
+                $tagMed = $prod->getElementsByTagName("med");
+                
+                $rastro = $prod->getElementsByTagName("rastro");
+
+
+                if($tagMed->length > 0){
+                    $hasTagMed = true;
+                    #echo "<textarea>".print_r($tagMed->item(0)->getElementsByTagName("nLote")->item(0)->nodeValue,true)."</textarea>";
+                }
+
+                if($hasTagMed && ($tagMed->item(0) !== null || $rastro->item(0)  !== null ) ){
+                    //MED LOTE
+                    $x += $w2;
+                   
+                    if ($rastro->item(0)  !== null){
+                        if ($rastro->item(0)->getElementsByTagName("nLote")->length){
+                            
+                            $texto = $rastro->item(0)->getElementsByTagName("nLote")->item(0)->nodeValue;
+                            
+                            $this->pTextBox($x, $y, $wLote, $h, $texto, $aFont, 'T', 'C', 0, '');
+                        } else {
+                            
+                            $this->pTextBox($x, $y, $wLote, $h, "          ", $aFont, 'T', 'C', 0, '');
+                        }
+                    } else {
+                        
+                        $this->pTextBox($x, $y, $wLote, $h, "          ", $aFont, 'T', 'C', 0, '');
+
+                    }
+
+                    //MED PMC
+                    $x += $wLote;
+
+                    if ($tagMed->item(0) !== null){
+                        if ($tagMed->item(0)->getElementsByTagName("vPMC")->length){
+                            
+                            $texto = $tagMed->item(0)->getElementsByTagName("vPMC")->item(0)->nodeValue;
+                            
+                            $this->pTextBox($x, $y, $wPMC, $h, $texto, $aFont, 'T', 'C', 0, '');
+
+                        } else {
+
+                            $this->pTextBox($x, $y, $wPMC, $h, "    ", $aFont, 'T', 'C', 0, '');
+
+                        }
+                    } else {
+                        $this->pTextBox($x, $y, $wPMC, $h, "    ", $aFont, 'T', 'C', 0, '');
+                    }
+
+                }else if($hasTagMed){
+                    //MED LOTE
+                    $x += $w2;
+                    $texto = "          ";
+                    $this->pTextBox($x, $y, $wLote, $h, $texto, $aFont, 'T', 'C', 0, '');
+
+                    //MED PMC
+                    $x += $wLote;
+                    $texto = "    ";
+                    $this->pTextBox($x, $y, $wPMC, $h, $texto, $aFont, 'T', 'C', 0, '');
+                }else{
+                    $wPMC = $w2;
+                }
+
+                $x += $wPMC;
+                //NCM
+                $texto = ! empty($prod->getElementsByTagName("NCM")->item(0)->nodeValue) ?
+                        $prod->getElementsByTagName("NCM")->item(0)->nodeValue : '';
+                $this->pTextBox($x, $y, $w3, $h, $texto, $aFont, 'T', 'C', 0, '');
+                $x += $w3;
+                //CST
+                if (isset($ICMS)) {
+                    $origem =  $this->pSimpleGetValue($ICMS, "orig");
+                    $cst =  $this->pSimpleGetValue($ICMS, "CST");
+                    $csosn =  $this->pSimpleGetValue($ICMS, "CSOSN");
+                    $texto = $origem.$cst.$csosn;
+                    $this->pTextBox($x, $y, $w4, $h, $texto, $aFont, 'T', 'C', 0, '');
+                }
+                //CFOP
+                $x += $w4;
+                $texto = $prod->getElementsByTagName("CFOP")->item(0)->nodeValue;
+                $this->pTextBox($x, $y, $w5, $h, $texto, $aFont, 'T', 'C', 0, '');
+                //Unidade
+                $x += $w5;
+                $texto = $prod->getElementsByTagName("uCom")->item(0)->nodeValue;
+                $this->pTextBox($x, $y, $w6, $h, $texto, $aFont, 'T', 'C', 0, '');
+                $x += $w6;
+                if ($this->orientacao == 'P') {
+                    $alinhamento = 'R';
+                } else {
+                    $alinhamento = 'R';
+                }
+                // QTDADE
+                $texto = number_format($prod->getElementsByTagName("qCom")->item(0)->nodeValue, 4, ",", ".");
+                $this->pTextBox($x, $y, $w7, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
+                $x += $w7;
+                // Valor Unitário
+                $texto = number_format($prod->getElementsByTagName("vUnCom")->item(0)->nodeValue, 4, ",", ".");
+                $this->pTextBox($x, $y, $w8, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
+                $x += $w8;
+                // Valor do Produto
+                $texto = "";
+                if (is_numeric($prod->getElementsByTagName("vProd")->item(0)->nodeValue)) {
+                    $texto = number_format($prod->getElementsByTagName("vProd")->item(0)->nodeValue, 2, ",", ".");
+                }
+                $this->pTextBox($x, $y, $w9, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
+                //Valor da Base de calculo
+                $x += $w9;
+                if (isset($ICMS)) {
+                    $texto = ! empty($ICMS->getElementsByTagName("vBC")->item(0)->nodeValue) ?
+                            number_format(
+                                $ICMS->getElementsByTagName("vBC")->item(0)->nodeValue,
+                                2,
+                                ",",
+                                "."
+                            ) : '0, 00';
+                    $this->pTextBox($x, $y, $w10, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
+                }
+                //Valor do ICMS
+                $x += $w10;
+                if (isset($ICMS)) {
+                    $texto = ! empty($ICMS->getElementsByTagName("vICMS")->item(0)->nodeValue) ?
+                            number_format(
+                                $ICMS->getElementsByTagName("vICMS")->item(0)->nodeValue,
+                                2,
+                                ",",
+                                "."
+                            ) : '0, 00';
+                    $this->pTextBox($x, $y, $w11, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
+                }
+                //Valor do IPI
+                $x += $w11;
+                if (isset($IPI)) {
+                    $texto = ! empty($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue) ?
+                            number_format($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue, 2, ",", ".") :'';
+                } else {
+                    $texto = '';
+                }
+                $this->pTextBox($x, $y, $w12, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
+                // %ICMS
+                $x += $w12;
+                if (isset($ICMS)) {
+                    $texto = ! empty($ICMS->getElementsByTagName("pICMS")->item(0)->nodeValue) ?
+                            number_format(
+                                $ICMS->getElementsByTagName("pICMS")->item(0)->nodeValue,
+                                2,
+                                ",",
+                                "."
+                            ) : '0, 00';
+                    $this->pTextBox($x, $y, $w13, $h, $texto, $aFont, 'T', 'C', 0, '');
+                }
+                //%IPI
+                $x += $w13;
+                if (isset($IPI)) {
+                    $texto = ! empty($IPI->getElementsByTagName("pIPI")->item(0)->nodeValue) ?
+                            number_format($IPI->getElementsByTagName("pIPI")->item(0)->nodeValue, 2, ",", ".") : '';
+                } else {
+                    $texto = '';
+                }
+                $this->pTextBox($x, $y, $w14, $h, $texto, $aFont, 'T', 'C', 0, '');
+                $y += $h;
+                $i++;
+                //incrementa o controle dos itens processados.
+                $this->qtdeItensProc++;
+            } else {
+                $i++;
+            }
+        }
+        return $oldY+$hmax;
+    }
+
+    /**
+     * issqnDANFE
+     * Monta o campo de serviços do DANFE
+     *
+     * @name   issqnDANFE (retrato e paisagem)
+     * @param  float $x Posição horizontal canto esquerdo
+     * @param  float $y Posição vertical canto superior
+     * @return float Posição vertical final
+     */
+    protected function pIssqnDANFE($x, $y)
+    {
+        $oldX = $x;
+        //#####################################################################
+        //CÁLCULO DO ISSQN
+        $texto = "CÁLCULO DO ISSQN";
+        $w = $this->wPrint;
+        $h = 7;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+        //INSCRIÇÃO MUNICIPAL
+        $y += 3;
+        $w = round($this->wPrint*0.23, 0);
+        $texto = 'INSCRIÇÃO MUNICIPAL';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        //inscrição municipal
+        $texto = ! empty($this->emit->getElementsByTagName("IM")->item(0)->nodeValue) ?
+                $this->emit->getElementsByTagName("IM")->item(0)->nodeValue : '';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+        //VALOR TOTAL DOS SERVIÇOS
+        $x += $w;
+        $texto = 'VALOR TOTAL DOS SERVIÇOS';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->ISSQNtot)) {
+            $texto = ! empty($this->ISSQNtot->getElementsByTagName("vServ")->item(0)->nodeValue) ?
+                    $this->ISSQNtot->getElementsByTagName("vServ")->item(0)->nodeValue : '';
+            $texto = number_format($texto, 2, ",", ".");
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'R', 0, '');
+        //BASE DE CÁLCULO DO ISSQN
+        $x += $w;
+        $texto = 'BASE DE CÁLCULO DO ISSQN';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->ISSQNtot)) {
+            $texto = ! empty($this->ISSQNtot->getElementsByTagName("vBC")->item(0)->nodeValue) ?
+                    $this->ISSQNtot->getElementsByTagName("vBC")->item(0)->nodeValue : '';
+            $texto = ! empty($texto) ? number_format($texto, 2, ",", ".") : '';
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'R', 0, '');
+        //VALOR TOTAL DO ISSQN
+        $x += $w;
+        if ($this->orientacao == 'P') {
+            $w = $this->wPrint - (3 * $w);
+        } else {
+            $w = $this->wPrint - (3 * $w)-$this->wCanhoto;
+        }
+        $texto = 'VALOR TOTAL DO ISSQN';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        if (isset($this->ISSQNtot)) {
+            $texto = ! empty($this->ISSQNtot->getElementsByTagName("vISS")->item(0)->nodeValue) ?
+                    $this->ISSQNtot->getElementsByTagName("vISS")->item(0)->nodeValue : '';
+            $texto = ! empty($texto) ? number_format($texto, 2, ",", ".") : '';
+        } else {
+            $texto = '';
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'R', 0, '');
+        return ($y+$h+1);
+    }
+
+    /**
+     *dadosAdicionaisDANFE
+     * Coloca o grupo de dados adicionais da NFe. (retrato e paisagem)
+     *
+     * @name   dadosAdicionaisDANFE
+     * @param  float $x Posição horizontal canto esquerdo
+     * @param  float $y Posição vertical canto superior
+     * @param  float $h altura do campo
+     * @return float Posição vertical final (eixo Y)
+     */
+    protected function pDadosAdicionaisDANFE($x, $y, $h)
+    {
+        //##################################################################################
+        //DADOS ADICIONAIS
+        $texto = "DADOS ADICIONAIS";
+        if ($this->orientacao == 'P') {
+              $w = $this->wPrint;
+        } else {
+              $w = $this->wPrint-$this->wCanhoto;
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, 8, $texto, $aFont, 'T', 'L', 0, '');
+        //INFORMAÇÕES COMPLEMENTARES
+        $texto = "INFORMAÇÕES COMPLEMENTARES";
+        $y += 3;
+        $w = $this->wAdic;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        //o texto com os dados adicionais foi obtido na função montaDANFE
+        //e carregado em uma propriedade privada da classe
+        //$this->wAdic com a largura do campo
+        //$this->textoAdic com o texto completo do campo
+        $y += 1;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
+        $this->pTextBox($x, $y+2, $w-2, $h-3, $this->textoAdic, $aFont, 'T', 'L', 0, '', false);
+        //RESERVADO AO FISCO
+        $texto = "RESERVADO AO FISCO";
+        $x += $w;
+        $y -= 1;
+        if ($this->orientacao == 'P') {
+            $w = $this->wPrint-$w;
+        } else {
+            $w = $this->wPrint-$w-$this->wCanhoto;
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'B');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        //inserir texto informando caso de contingência
+        // 1 - Normal - emissão normal;
+        // 2 - Contingência FS - emissão em contingência com impressão do DANFE em Formulário de Segurança;
+        // 3 - Contingência SCAN - emissão em contingência no Sistema de Contingência do Ambiente Nacional;
+        // 4 - Contingência DPEC - emissão em contingência com envio da Declaração
+        //     Prévia de Emissão em Contingência;
+        // 5 - Contingência FS-DA - emissão em contingência com impressão do DANFE em Formulário de
+        //     Segurança para Impressão de Documento Auxiliar de Documento Fiscal Eletrônico (FS-DA);
+        // 6 - Contingência SVC-AN
+        // 7 - Contingência SVC-RS
+        $xJust = $this->pSimpleGetValue($this->ide, 'xJust', 'Justificativa: ');
+        $dhCont = $this->pSimpleGetValue($this->ide, 'dhCont', ' Entrada em contingência : ');
+        $texto = '';
+        switch ($this->tpEmis) {
+            case 2:
+                $texto = 'CONTINGÊNCIA FS' . $dhCont . $xJust;
+                break;
+            case 3:
+                $texto = 'CONTINGÊNCIA SCAN' . $dhCont . $xJust;
+                break;
+            case 4:
+                $texto = 'CONTINGÊNCIA DPEC' . $dhCont . $xJust;
+                break;
+            case 5:
+                $texto = 'CONTINGÊNCIA FSDA' . $dhCont . $xJust;
+                break;
+            case 6:
+                $texto = 'CONTINGÊNCIA SVC-AN' . $dhCont . $xJust;
+                break;
+            case 7:
+                $texto = 'CONTINGÊNCIA SVC-RS' . $dhCont . $xJust;
+                break;
+        }
+        $y += 2;
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
+        $this->pTextBox($x, $y, $w-2, $h-3, $texto, $aFont, 'T', 'L', 0, '', false);
+        return $y+$h;
+    }
+
+    /**
+     * pRodape
+     * Monta o rodapé no final da DANFE com a data/hora de impressão e informações
+     * sobre a API NfePHP
+     *
+     * @name   pRodape
+     * @param  float $xInic  Posição horizontal canto esquerdo
+     * @param  float $yFinal Posição vertical final para impressão
+     * @return void
+     */
+    protected function pRodape($x, $y)
+    {
+        if ($this->orientacao == 'P') {
+              $w = $this->wPrint;
+        } else {
+              $w = $this->wPrint-$this->wCanhoto;
+              $x = $this->wCanhoto;
+        }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'I');
+        $texto = "Impresso em ". date('d/m/Y') . " as " . date('H:i:s');
+        $this->pTextBox($x, $y, $w, 0, $texto, $aFont, 'T', 'L', false);
+        
+    }
+
+    /**
+     * pCcanhotoDANFE
+     * Monta o canhoto da DANFE (retrato e paisagem)
+     *
+     * @name   canhotoDANFE
+     * @param  number $x Posição horizontal canto esquerdo
+     * @param  number $y Posição vertical canto superior
+     * @return number Posição vertical final
+     *
+     * TODO 21/07/14 fmertins: quando orientação L-paisagem, o canhoto está sendo gerado incorretamente
+     */
+    protected function pCanhoto($x, $y)
+    {
+        $oldX = $x;
+        $oldY = $y;
+        //#################################################################################
+        //canhoto
+        //identificação do tipo de nf entrada ou saida
+        $tpNF = $this->ide->getElementsByTagName('tpNF')->item(0)->nodeValue;
+        if ($tpNF == '0') {
+            //NFe de Entrada
+            $emitente = '';
+            $emitente .= $this->dest->getElementsByTagName("xNome")->item(0)->nodeValue . " - ";
+            $emitente .= $this->enderDest->getElementsByTagName("xLgr")->item(0)->nodeValue . ", ";
+            $emitente .= $this->enderDest->getElementsByTagName("nro")->item(0)->nodeValue . " - ";
+            $emitente .= $this->pSimpleGetValue($this->enderDest, "xCpl", " - ", " ");
+            $emitente .= $this->enderDest->getElementsByTagName("xBairro")->item(0)->nodeValue . " ";
+            $emitente .= $this->enderDest->getElementsByTagName("xMun")->item(0)->nodeValue . "-";
+            $emitente .= $this->enderDest->getElementsByTagName("UF")->item(0)->nodeValue . "";
+            $destinatario = $this->emit->getElementsByTagName("xNome")->item(0)->nodeValue . " ";
+        } else {
+            //NFe de Saída
+            $emitente = $this->emit->getElementsByTagName("xNome")->item(0)->nodeValue . " ";
+            $destinatario = '';
+            $destinatario .= $this->dest->getElementsByTagName("xNome")->item(0)->nodeValue . " - ";
+            $destinatario .= $this->enderDest->getElementsByTagName("xLgr")->item(0)->nodeValue . ", ";
+            $destinatario .= $this->enderDest->getElementsByTagName("nro")->item(0)->nodeValue . " ";
+            $destinatario .= $this->pSimpleGetValue($this->enderDest, "xCpl", " - ", " ");
+            $destinatario .= $this->enderDest->getElementsByTagName("xBairro")->item(0)->nodeValue . " ";
+            $destinatario .= $this->enderDest->getElementsByTagName("xMun")->item(0)->nodeValue . "-";
+            $destinatario .= $this->enderDest->getElementsByTagName("UF")->item(0)->nodeValue . " ";
+        }
+        //identificação do sistema emissor
+        //linha separadora do canhoto
+        if ($this->orientacao == 'P') {
+            $w = round($this->wPrint * 0.81, 0);
+        } else {
+            //linha separadora do canhoto - 238
+            //posicao altura
+            $y = $this->wPrint-85;
+            //altura
+            $w = $this->wPrint-85-24;
+        }
+        $h = 10;
+        //desenha caixa
+        $texto = '';
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
+        $aFontSmall = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'L', 1, '', false);
+        } else {
+            $this->pTextBox90($x, $y, $w, $h, $texto, $aFont, 'C', 'L', 1, '', false);
+        }
+        $numNF = str_pad($this->ide->getElementsByTagName('nNF')->item(0)->nodeValue, 9, "0", STR_PAD_LEFT);
+        $serie = str_pad($this->ide->getElementsByTagName('serie')->item(0)->nodeValue, 3, "0", STR_PAD_LEFT);
+        $texto = "RECEBEMOS DE ";
+        $texto .= $emitente;
+        $texto .= " OS PRODUTOS E/OU SERVIÇOS CONSTANTES DA NOTA FISCAL ELETRÔNICA INDICADA ";
+        if ($this->orientacao == 'P') {
+            $texto .= "ABAIXO";
+        } else {
+            $texto .= "AO LADO";
+        }
+        $texto .= ". EMISSÃO: ";
+        $dEmi = ! empty($this->ide->getElementsByTagName("dEmi")->item(0)->nodeValue) ?
+                $this->ide->getElementsByTagName("dEmi")->item(0)->nodeValue : '';
+        if ($dEmi == '') {
+            $dEmi = ! empty($this->ide->getElementsByTagName("dhEmi")->item(0)->nodeValue) ?
+                    $this->ide->getElementsByTagName("dhEmi")->item(0)->nodeValue : '';
+            $aDemi = explode('T', $dEmi);
+            $dEmi = $aDemi[0];
+        }
+        $texto .= $this->pYmd2dmy($dEmi) ." ";
+        $texto .= "VALOR TOTAL: R$ ";
+        $texto .= number_format($this->ICMSTot->getElementsByTagName("vNF")->item(0)->nodeValue, 2, ",", ".") . " ";
+        $texto .= "DESTINATÁRIO: ";
+        $texto .= $destinatario;
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w-1, $h, $texto, $aFont, 'C', 'L', 0, '', false);
+            $x1 = $x + $w;
+            $w1 = $this->wPrint - $w;
+            $texto = "NF-e";
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>14, 'style'=>'B');
+            $this->pTextBox($x1, $y, $w1, 18, $texto, $aFont, 'T', 'C', 0, '');
+            $texto = "Nº. " . $this->pFormat($numNF, "###.###.###") . " \n";
+            $texto .= "Série $serie";
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+            $this->pTextBox($x1, $y, $w1, 18, $texto, $aFont, 'C', 'C', 1, '');
+            //DATA DE RECEBIMENTO
+            $texto = "DATA DE RECEBIMENTO";
+            $y += $h;
+            $w2 = round($this->wPrint*0.17, 0); //35;
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+            $this->pTextBox($x, $y, $w2, 8, $texto, $aFont, 'T', 'L', 1, '');
+            //IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR
+            $x += $w2;
+            $w3 = $w-$w2;
+            $texto = "IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR";
+            $this->pTextBox($x, $y, $w3, 8, $texto, $aFont, 'T', 'L', 1, '');
+            $x = $oldX;
+            $y += 9;
+            $this->pdf->DashedHLine($x, $y, $this->wPrint, 0.1, 80);
+            $y += 2;
+            return $y;
+        } else {
+            $x--;
+            $x = $this->pTextBox90($x, $y, $w-1, $h, $texto, $aFontSmall, 'C', 'L', 0, '', false);
+            //NUMERO DA NOTA FISCAL LOGO NFE
+            $w1 = 16;
+            $x1 = $oldX;
+            $y = $oldY;
+            $texto = "NF-e";
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>14, 'style'=>'B');
+            $this->pTextBox($x1, $y, $w1, 18, $texto, $aFont, 'T', 'C', 0, '');
+            $texto = "Nº.\n" . $this->pFormat($numNF, "###.###.###") . " \n";
+            $texto .= "Série $serie";
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'B');
+            $this->pTextBox($x1, $y, $w1, 18, $texto, $aFont, 'C', 'C', 1, '');
+            //DATA DO RECEBIMENTO
+            $texto = "DATA DO RECEBIMENTO";
+            $y = $this->wPrint-85;
+            $x = 12;
+            $w2 = round($this->wPrint*0.17, 0); //35;
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+            $this->pTextBox90($x, $y, $w2, 8, $texto, $aFont, 'T', 'L', 1, '');
+            //IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR
+            $y -= $w2;
+            $w3 = $w-$w2;
+            $texto = "IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR";
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>5.7, 'style'=>'');
+            $x = $this->pTextBox90($x, $y, $w3, 8, $texto, $aFont, 'T', 'L', 1, '');
+            $this->pdf->DashedVLine(23, $oldY, 0.1, $this->wPrint-20, 67);
+            return $x;
+        }
+    }
+
+    /**
+     * pGeraInformacoesDaTagCompra
+     * Devolve uma string contendo informação sobre as tag <compra><xNEmp>, <xPed> e <xCont> ou string vazia.
+     * Aviso: Esta função não leva em consideração dados na tag xPed do item.
+     *
+     * @name   pGeraInformacoesDaTagCompra
+     * @return string com as informacoes dos pedidos.
+     */
+    protected function pGeraInformacoesDaTagCompra()
+    {
+        $saida = "";
+        if (isset($this->compra)) {
+            if (! empty($this->compra->getElementsByTagName("xNEmp")->item(0)->nodeValue)) {
+                $saida .= " Nota de Empenho: " . $this->compra->getElementsByTagName("xNEmp")->item(0)->nodeValue;
+            }
+            if (! empty($this->compra->getElementsByTagName("xPed")->item(0)->nodeValue)) {
+                $saida .= " Pedido: " . $this->compra->getElementsByTagName("xPed")->item(0)->nodeValue;
+            }
+            if (! empty($this->compra->getElementsByTagName("xCont")->item(0)->nodeValue)) {
+                $saida .= " Contrato: " . $this->compra->getElementsByTagName("xCont")->item(0)->nodeValue;
+            }
+        }
+        return $saida;
+    }
+
+    /**
+     * pGeraChaveAdicionalDeContingencia
+     *
+     * @name   pGeraChaveAdicionalDeContingencia
+     * @return string chave
+     */
+    protected function pGeraChaveAdicionalDeContingencia()
+    {
+        //cUF tpEmis CNPJ vNF ICMSp ICMSs DD  DV
+        // Quantidade de caracteres  02   01      14  14    01    01  02 01
+        $forma  = "%02d%d%s%014d%01d%01d%02d";
+        $cUF    = $this->ide->getElementsByTagName('cUF')->item(0)->nodeValue;
+        $CNPJ   = "00000000000000" . $this->emit->getElementsByTagName('CNPJ')->item(0)->nodeValue;
+        $CNPJ   = substr($CNPJ, -14);
+        $vNF    = $this->ICMSTot->getElementsByTagName("vNF")->item(0)->nodeValue * 100;
+        $vICMS  = $this->ICMSTot->getElementsByTagName("vICMS")->item(0)->nodeValue;
+        if ($vICMS > 0) {
+            $vICMS = 1;
+        }
+        $icmss  = $this->ICMSTot->getElementsByTagName("vBC")->item(0)->nodeValue;
+        if ($icmss > 0) {
+            $icmss = 1;
+        }
+        $dEmi = ! empty($this->ide->getElementsByTagName("dEmi")->item(0)->nodeValue) ?
+                $this->ide->getElementsByTagName("dEmi")->item(0)->nodeValue : '';
+        if ($dEmi == '') {
+            $dEmi = ! empty($this->ide->getElementsByTagName("dhEmi")->item(0)->nodeValue) ?
+                    $this->ide->getElementsByTagName("dhEmi")->item(0)->nodeValue : '';
+            $aDemi = explode('T', $dEmi);
+            $dEmi = $aDemi[0];
+        }
+        $dd  = $dEmi;
+        $rpos = strrpos($dd, '-');
+        $dd  = substr($dd, $rpos +1);
+        $chave = sprintf($forma, $cUF, $this->tpEmis, $CNPJ, $vNF, $vICMS, $icmss, $dd);
+        $chave = $chave . $this->pModulo11($chave);
+        return $chave;
+    }
+
+    /**
+     * pGeraInformacoesDasNotasReferenciadas
+     * Devolve uma string contendo informação sobre as notas referenciadas. Suporta N notas, eletrônicas ou não
+     * Exemplo: NFe Ref.: série: 01 número: 01 emit: 11.111.111/0001-01
+     * em 10/2010 [0000 0000 0000 0000 0000 0000 0000 0000 0000 0000 0000]
+     *
+     * @return string Informacoes a serem adicionadas no rodapé sobre notas referenciadas.
+     */
+    protected function pGeraInformacoesDasNotasReferenciadas()
+    {
+        $formaNfeRef = "\r\nNFe Ref.: série:%d número:%d emit:%s em %s [%s]";
+        $formaCTeRef = "\r\nCTe Ref.: série:%d número:%d emit:%s em %s [%s]";
+        $formaNfRef = "\r\nNF  Ref.: série:%d numero:%d emit:%s em %s modelo: %d";
+        $formaECFRef = "\r\nECF Ref.: modelo: %s ECF:%d COO:%d";
+        $formaNfpRef = "\r\nNFP Ref.: série:%d número:%d emit:%s em %s modelo: %d IE:%s";
+        $saida='';
+        $nfRefs = $this->ide->getElementsByTagName('NFref');
+        if (0 === $nfRefs->length) {
+            return $saida;
+        }
+        foreach ($nfRefs as $nfRef) {
+            if (empty($nfRef)) {
+                continue;
+            }
+            $refNFe = $nfRef->getElementsByTagName('refNFe');
+            foreach ($refNFe as $chave_acessoRef) {
+                $chave_acesso = $chave_acessoRef->nodeValue;
+                $chave_acessoF = $this->pFormat($chave_acesso, $this->formatoChave);
+                $data = substr($chave_acesso, 4, 2)."/20".substr($chave_acesso, 2, 2);
+                $cnpj = $this->pFormat(substr($chave_acesso, 6, 14), "##.###.###/####-##");
+                $serie  = substr($chave_acesso, 22, 3);
+                $numero = substr($chave_acesso, 25, 9);
+                $saida .= sprintf($formaNfeRef, $serie, $numero, $cnpj, $data, $chave_acessoF);
+            }
+            $refNF = $nfRef->getElementsByTagName('refNF');
+            foreach ($refNF as $umaRefNFe) {
+                $data = $umaRefNFe->getElementsByTagName('AAMM')->item(0)->nodeValue;
+                $cnpj = $umaRefNFe->getElementsByTagName('CNPJ')->item(0)->nodeValue;
+                $mod = $umaRefNFe->getElementsByTagName('mod')->item(0)->nodeValue;
+                $serie = $umaRefNFe->getElementsByTagName('serie')->item(0)->nodeValue;
+                $numero = $umaRefNFe->getElementsByTagName('nNF')->item(0)->nodeValue;
+                $data = substr($data, 2, 2) . "/20" . substr($data, 0, 2);
+                $cnpj = $this->pFormat($cnpj, "##.###.###/####-##");
+                $saida .= sprintf($formaNfRef, $serie, $numero, $cnpj, $data, $mod);
+            }
+            $refCTe = $nfRef->getElementsByTagName('refCTe');
+            foreach ($refCTe as $chave_acessoRef) {
+                $chave_acesso = $chave_acessoRef->nodeValue;
+                $chave_acessoF = $this->pFormat($chave_acesso, $this->formatoChave);
+                $data = substr($chave_acesso, 4, 2)."/20".substr($chave_acesso, 2, 2);
+                $cnpj = $this->pFormat(substr($chave_acesso, 6, 14), "##.###.###/####-##");
+                $serie  = substr($chave_acesso, 22, 3);
+                $numero = substr($chave_acesso, 25, 9);
+                $saida .= sprintf($formaCTeRef, $serie, $numero, $cnpj, $data, $chave_acessoF);
+            }
+            $refECF = $nfRef->getElementsByTagName('refECF');
+            foreach ($refECF as $umaRefNFe) {
+                $mod    = $umaRefNFe->getElementsByTagName('mod')->item(0)->nodeValue;
+                $nECF   = $umaRefNFe->getElementsByTagName('nECF')->item(0)->nodeValue;
+                $nCOO   = $umaRefNFe->getElementsByTagName('nCOO')->item(0)->nodeValue;
+                $saida .= sprintf($formaECFRef, $mod, $nECF, $nCOO);
+            }
+            $refNFP = $nfRef->getElementsByTagName('refNFP');
+            foreach ($refNFP as $umaRefNFe) {
+                $data = $umaRefNFe->getElementsByTagName('AAMM')->item(0)->nodeValue;
+                $cnpj = ! empty($umaRefNFe->getElementsByTagName('CNPJ')->item(0)->nodeValue) ?
+                    $umaRefNFe->getElementsByTagName('CNPJ')->item(0)->nodeValue :
+                    '';
+                $cpf = ! empty($umaRefNFe->getElementsByTagName('CPF')->item(0)->nodeValue) ?
+                        $umaRefNFe->getElementsByTagName('CPF')->item(0)->nodeValue : '';
+                $mod = $umaRefNFe->getElementsByTagName('mod')->item(0)->nodeValue;
+                $serie = $umaRefNFe->getElementsByTagName('serie')->item(0)->nodeValue;
+                $numero = $umaRefNFe->getElementsByTagName('nNF')->item(0)->nodeValue;
+                $ie = $umaRefNFe->getElementsByTagName('IE')->item(0)->nodeValue;
+                $data = substr($data, 2, 2) . "/20" . substr($data, 0, 2);
+                if ($cnpj == '') {
+                    $cpf_cnpj = $this->pFormat($cpf, "###.###.###-##");
+                } else {
+                    $cpf_cnpj = $this->pFormat($cnpj, "##.###.###/####-##");
+                }
+                $saida .= sprintf($formaNfpRef, $serie, $numero, $cpf_cnpj, $data, $mod, $ie);
+            }
+        }
+        return $saida;
     }
 
      /**
-     * Grupo de Formas de Pagamento YA04 pai YA
-     * NOTA: Ajuste nt_2016_002_v1.30
-     * tag NFe/infNFe/pag/detPag/card
-     * @param stdClass $std
-     * @return DOMElement
+     * printDANFE
+     * Esta função envia a DANFE em PDF criada para o dispositivo informado.
+     * O destino da impressão pode ser :
+     * I-browser
+     * D-browser com download
+     * F-salva em um arquivo local com o nome informado
+     * S-retorna o documento como uma string e o nome é ignorado.
+     * Para enviar o pdf diretamente para uma impressora indique o
+     * nome da impressora e o destino deve ser 'S'.
+     *
+     * @param string $nome Path completo com o nome do arquivo pdf
+     * @param string $destino Direção do envio do PDF
+     * @param string $printer Identificação da impressora no sistema
+     * @return string Caso o destino seja S o pdf é retornado como uma string
+     * @todo Rotina de impressão direta do arquivo pdf criado
      */
+    public function printDANFE($nome = '', $destino = 'I', $printer = '')
+    {
+        $arq = $this->pdf->Output($nome, $destino);
+        if ($destino == 'S') {
+            //aqui pode entrar a rotina de impressão direta
+        }
+        return $arq;
 
-    public function tagCard($std){
+        /*
+           Opção 1 - exemplo de script shell usando acroread
+             #!/bin/sh
+            if ($# == 2) then
+                set printer=$2
+            else
+                set printer=$PRINTER
+            fi
+            if ($1 != "") then
+                cat ${1} | acroread -toPostScript | lpr -P $printer
+                echo ${1} sent to $printer ... OK!
+            else
+                echo PDF Print: No filename defined!
+            fi
+            Opção 2 -
+            salvar pdf em arquivo temporario
+            converter pdf para ps usando pdf2ps do linux
+            imprimir ps para printer usando lp ou lpr
+            remover os arquivos temporarios pdf e ps
+            Opção 3 -
+            salvar pdf em arquivo temporario
+            imprimir para printer usando lp ou lpr com system do php
+            remover os arquivos temporarios pdf
+        */
+    } //fim função printDANFE
 
-         $possible = [
-            'tpIntegra',
-            'CNPJ',
-            'tBand',
-            'cAut'
-        ];
+    /**
+     * RetiradaDANFE
+     * Monta o campo com os dados de retirada na DANFE. (retrato e paisagem)
+     *
+     * @name   retiradaDANFE
+     * @param  number $x Posição horizontal canto esquerdo
+     * @param  number $y Posição vertical canto superior
+     * @return number Posição vertical final
+     */
+    private function pRetiradaDANFE ($x = 0, $y = 0){
 
-        $std = $this->equilizeParameters($std, $possible);
+         $oldX = $x;
 
-        $card = $this->dom->createElement("card");
+        $oldY = $y;
 
-        $this->dom->addChild(
-            $card,
-            "tpIntegra",
-            $std->tpIntegra,
-            true,
-            "Tipo de Integração para pagamento"
-        );
+        if ($this->orientacao == 'P') {
+            $maxW = $this->wPrint;
+        } else {
+            $maxW = $this->wPrint - $this->wCanhoto;
+        }
+
+        $w = $maxW;
+
+        $h = 7;
+
+        $texto = "INFORMAÇÕES DO LOCAL DE ENTREGA";
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
         
-        $this->dom->addChild(
-            $card,
-            "CNPJ",
-            $std->CNPJ,
-            false,
-            "CNPJ da Credenciadora de cartão de crédito e/ou débito"
-        );
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+
+        $y += 3;
+
+        //NOME / RAZÃO SOCIAL
+        $w = round($maxW*0.61, 0);
         
-        $this->dom->addChild(
-            $card,
-            "tBand",
-            $std->tBand,
-            false,
-            "Bandeira da operadora de cartão de crédito e/ou débito"
-        );
+        $w1 = $w;
 
-        $this->dom->addChild(
-            $card,
-            "cAut",
-            $std->cAut,
-            false,
-            "Número de autorização da operação cartão de crédito e/ou débito"
-        );
+        $texto = 'NOME / RAZÃO SOCIAL';
 
-        $this->dom->appChild($this->detPag, $card, "Inclusão do node Card");
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
 
-    }
+        $texto = '';
 
-    /**
-     * Grupo Fatura Y02 pai Y01
-     * tag NFe/infNFe/cobr/fat (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagfat(stdClass $std)
-    {
-        $possible = [
-            'nFat',
-            'vOrig',
-            'vDesc',
-            'vLiq'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
+        if (! empty($this->retirada->getElementsByTagName("xNome")->item(0)->nodeValue)) {
 
-        $this->buildCobr();
-        $fat = $this->dom->createElement("fat");
-        $this->dom->addChild(
-            $fat,
-            "nFat",
-            $std->nFat,
-            false,
-            "Número da Fatura"
-        );
-        $this->dom->addChild(
-            $fat,
-            "vOrig",
-            $std->vOrig,
-            false,
-            "Valor Original da Fatura"
-        );
-        $this->dom->addChild(
-            $fat,
-            "vDesc",
-            $std->vDesc,
-            false,
-            "Valor do desconto"
-        );
-        $this->dom->addChild(
-            $fat,
-            "vLiq",
-            $std->vLiq,
-            false,
-            "Valor Líquido da Fatura"
-        );
-        $this->dom->appChild($this->cobr, $fat);
-        return $fat;
-    }
+            $texto = $this->retirada->getElementsByTagName("xNome")->item(0)->nodeValue;
+        }
 
-    /**
-     * Grupo Duplicata Y07 pai Y02
-     * tag NFe/infNFe/cobr/fat/dup (opcional)
-     * É necessário criar a tag fat antes de criar as duplicatas
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagdup(stdClass $std)
-    {
-        $possible = [
-            'nDup',
-            'dVenc',
-            'vDup'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
 
-        $this->buildCobr();
-        $dup = $this->dom->createElement("dup");
-        $this->dom->addChild(
-            $dup,
-            "nDup",
-            $std->nDup,
-            false,
-            "Número da Duplicata"
-        );
-        $this->dom->addChild(
-            $dup,
-            "dVenc",
-            $std->dVenc,
-            false,
-            "Data de vencimento"
-        );
-        $this->dom->addChild(
-            $dup,
-            "vDup",
-            $std->vDup,
-            true,
-            "Valor da duplicata"
-        );
-        $this->dom->appChild($this->cobr, $dup, 'Inclui duplicata na tag cobr');
-        return $dup;
-    }
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+        } else {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 1, '');
+        }
 
-    /**
-     * Grupo de Informações Adicionais Z01 pai A01
-     * tag NFe/infNFe/infAdic (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function taginfAdic(stdClass $std)
-    {
+         //CNPJ / CPF
+        $x += $w;
+        
+        $w = round($maxW*0.23, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'CNPJ / CPF';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        //Pegando valor do CPF/CNPJ
+        
+        $texto = '';
 
-        $possible = ['infAdFisco', 'infCpl'];
-        $std = $this->equilizeParameters($std, $possible);
+        if (! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue) || ! empty($this->retirada->getElementsByTagName("CPF")->item(0)->nodeValue)) {
 
-        $this->buildInfAdic();
-        $this->dom->addChild(
-            $this->infAdic,
-            "infAdFisco",
-            $std->infAdFisco,
-            false,
-            "Informações Adicionais de Interesse do Fisco"
-        );
-        $this->dom->addChild(
-            $this->infAdic,
-            "infCpl",
-            Strings::replaceSpecialsChars($std->infCpl),
-            false,
-            "Informações Complementares de interesse do Contribuinte"
-        );
-        return $this->infAdic;
-    }
+            if (! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue)) {
+                $texto = $this->pFormat(
+                    $this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue,
+                    "###.###.###/####-##"
+                );
+            } else {
+                $texto = ! empty($this->retirada->getElementsByTagName("CPF")->item(0)->nodeValue) ?
+                        $this->pFormat(
+                            $this->retirada->getElementsByTagName("CPF")->item(0)->nodeValue,
+                            "###.###.###-##"
+                        ) : '';
+            }
 
-    /**
-     * Grupo Campo de uso livre do contribuinte Z04 pai Z01
-     * tag NFe/infNFe/infAdic/obsCont (opcional)
-     * O método taginfAdic deve ter sido carregado antes
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagobsCont(stdClass $std)
-    {
-        $possible = ['xCampo', 'xTexto'];
-        $std = $this->equilizeParameters($std, $possible);
+        }
 
-        $this->buildInfAdic();
-        $obsCont = $this->dom->createElement("obsCont");
-        $obsCont->setAttribute("xCampo", $std->xCampo);
-        $this->dom->addChild(
-            $obsCont,
-            "xTexto",
-            $std->xTexto,
-            true,
-            "Conteúdo do campo"
-        );
-        $this->dom->appChild($this->infAdic, $obsCont, '');
-        return $obsCont;
-    }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
 
-    /**
-     * Grupo Campo de uso livre do Fisco Z07 pai Z01
-     * tag NFe/infNFe/infAdic/obsFisco (opcional)
-     * O método taginfAdic deve ter sido carregado antes
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagobsFisco(stdClass $std)
-    {
-        $possible = ['xCampo', 'xTexto'];
-        $std = $this->equilizeParameters($std, $possible);
+        //Inscrição municipal
+        $x += $w;
 
-        $this->buildInfAdic();
-        $obsFisco = $this->dom->createElement("obsFisco");
-        $obsFisco->setAttribute("xCampo", $std->xCampo);
-        $this->dom->addChild(
-            $obsFisco,
-            "xTexto",
-            $std->xTexto,
-            true,
-            "Conteúdo do campo"
-        );
-        $this->dom->appChild($this->infAdic, $obsFisco, '');
-        return $obsFisco;
-    }
+        $w = $maxW-($w1+$w2);
 
-    /**
-     * Grupo Processo referenciado Z10 pai Z01 (NT2012.003)
-     * tag NFe/infNFe/procRef (opcional)
-     * O método taginfAdic deve ter sido carregado antes
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagprocRef($std)
-    {
-        $possible = ['nProc', 'indProc'];
-        $std = $this->equilizeParameters($std, $possible);
+        $wx = $w;
 
-        $this->buildInfAdic();
-        $procRef = $this->dom->createElement("procRef");
-        $this->dom->addChild(
-            $procRef,
-            "nProc",
-            $std->nProc,
-            true,
-            "Identificador do processo ou ato concessório"
-        );
-        $this->dom->addChild(
-            $procRef,
-            "indProc",
-            $std->indProc,
-            true,
-            "Indicador da origem do processo"
-        );
-        $this->dom->appChild($this->infAdic, $procRef, '');
-        return $procRef;
-    }
+        $texto = 'INSCRIÇÃO ESTADUAL';
 
-    /**
-     * Grupo Exportação ZA01 pai A01
-     * tag NFe/infNFe/exporta (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagexporta(stdClass $std)
-    {
-        $possible = ['UFSaidaPais', 'xLocExporta', 'xLocDespacho'];
-        $std = $this->equilizeParameters($std, $possible);
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
 
-        $this->exporta = $this->dom->createElement("exporta");
-        $this->dom->addChild(
-            $this->exporta,
-            "UFSaidaPais",
-            $std->UFSaidaPais,
-            true,
-            "Sigla da UF de Embarque ou de transposição de fronteira"
-        );
-        $this->dom->addChild(
-            $this->exporta,
-            "xLocExporta",
-            $std->xLocExporta,
-            true,
-            "Descrição do Local de Embarque ou de transposição de fronteira"
-        );
-        $this->dom->addChild(
-            $this->exporta,
-            "xLocDespacho",
-            $std->xLocDespacho,
-            false,
-            "Descrição do local de despacho"
-        );
-        return $this->exporta;
-    }
+        $texto = '';
 
-    /**
-     * Grupo Compra ZB01 pai A01
-     * tag NFe/infNFe/compra (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagcompra(stdClass $std)
-    {
-        $possible = ['xNEmp', 'xPed', 'xCont'];
-        $std = $this->equilizeParameters($std, $possible);
+        if (! empty($this->retirada->getElementsByTagName("IE")->item(0)->nodeValue)) {
 
-        $this->compra = $this->dom->createElement("compra");
-        $this->dom->addChild(
-            $this->compra,
-            "xNEmp",
-            $std->xNEmp,
-            false,
-            "Nota de Empenho"
-        );
-        $this->dom->addChild(
-            $this->compra,
-            "xPed",
-            $std->xPed,
-            false,
-            "Pedido"
-        );
-        $this->dom->addChild(
-            $this->compra,
-            "xCont",
-            $std->xCont,
-            false,
-            "Contrato"
-        );
-        return $this->compra;
-    }
+            $texto = $this->retirada->getElementsByTagName("IE")->item(0)->nodeValue;
+        }
 
-    /**
-     * Grupo Cana ZC01 pai A01
-     * tag NFe/infNFe/cana (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagcana(stdClass $std)
-    {
-        $possible = [
-            'safra',
-            'ref',
-            'qTotMes',
-            'qTotAnt',
-            'qTotGer',
-            'vFor',
-            'vTotDed',
-            'vLiqFor'
-        ];
-        $std = $this->equilizeParameters($std, $possible);
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        } else {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 1, '');
+        }
 
-        $this->cana = $this->dom->createElement("cana");
-        $this->dom->addChild(
-            $this->cana,
-            "safra",
-            $std->safra,
-            true,
-            "Identificação da safra"
-        );
-        $this->dom->addChild(
-            $this->cana,
-            "ref",
-            $std->ref,
-            true,
-            "Mês e ano de referência"
-        );
-        $this->dom->addChild(
-            $this->cana,
-            "qTotMes",
-            $std->qTotMes,
-            true,
-            "Quantidade Total do Mês"
-        );
-        $this->dom->addChild(
-            $this->cana,
-            "qTotAnt",
-            $std->qTotAnt,
-            true,
-            "Quantidade Total Anterior"
-        );
-        $this->dom->addChild(
-            $this->cana,
-            "qTotGer",
-            $std->qTotGer,
-            true,
-            "Quantidade Total Geral"
-        );
-        $this->dom->addChild(
-            $this->cana,
-            "vFor",
-            $std->vFor,
-            true,
-            "Valor dos Fornecimentos"
-        );
-        $this->dom->addChild(
-            $this->cana,
-            "vTotDed",
-            $std->vTotDed,
-            true,
-            "Valor Total da Dedução"
-        );
-        $this->dom->addChild(
-            $this->cana,
-            "vLiqFor",
-            $std->vLiqFor,
-            true,
-            "Valor Líquido dos Fornecimentos"
-        );
-        return $this->cana;
-    }
+        //ENDEREÇO
+        $w = round($maxW*0.47, 0);
+        
+        $w1 = $w;
+        
+        $y += $h;
+        
+        $x = $oldX;
 
-    /**
-     * Grupo Fornecimento diário de cana ZC04 pai ZC01
-     * tag NFe/infNFe/cana/forDia
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagforDia(stdClass $std)
-    {
-        $forDia = $this->dom->createElement("forDia");
-        $forDia->setAttribute("dia", $std->dia);
-        $this->dom->addChild(
-            $forDia,
-            "qtde",
-            $std->qtde,
-            true,
-            "Quantidade"
-        );
-        $qTotMes = $this->cana->getElementsByTagName('qTotMes')->item(0);
-        $this->cana->insertBefore($forDia, $qTotMes);
-        return $forDia;
-    }
+        $texto = 'ENDEREÇO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
 
-    /**
-     * Grupo Deduções – Taxas e Contribuições ZC10 pai ZC01
-     * tag NFe/infNFe/cana/deduc (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function tagdeduc(stdClass $std)
-    {
-        $possible = ['xDed', 'vDed'];
-        $std = $this->equilizeParameters($std, $possible);
+        if (! empty($this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue)) {
 
-        $deduc = $this->dom->createElement("deduc");
-        $this->dom->addChild(
-            $deduc,
-            "xDed",
-            $std->xDed,
-            true,
-            "Descrição da Dedução"
-        );
-        $this->dom->addChild(
-            $deduc,
-            "vDed",
-            $std->vDed,
-            true,
-            "Valor da Dedução"
-        );
-        $vFor = $this->cana->getElementsByTagName('vFor')->item(0);
-        $this->cana->insertBefore($deduc, $vFor);
-        return $deduc;
-    }
+            $texto = $this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue;
+        }
+        
+        $texto .= ', ' . $this->retirada->getElementsByTagName("nro")->item(0)->nodeValue;
+        
+        $texto .= $this->pSimpleGetValue($this->retirada, "xCpl", " - ");
 
-    /**
-     * Informações suplementares da Nota Fiscal
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    public function taginfNFeSupl(stdClass $std)
-    {
-        $possible = ['qrcode', 'urlChave'];
-        $std = $this->equilizeParameters($std, $possible);
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '', true);
 
-        $infNFeSupl = $this->dom->createElement("infNFeSupl");
-        $nodeqr = $infNFeSupl->appendChild($this->dom->createElement('qrCode'));
-        $nodeqr->appendChild($this->dom->createCDATASection($std->qrcode));
-        //incluido no layout 4.00
-        $std->urlChave = !empty($std->urlChave) ? $std->urlChave : null;
-        $this->dom->addChild(
-            $infNFeSupl,
-            "urlChave",
-            $std->urlChave,
-            false,
-            "URL de consulta por chave de acesso a ser impressa no DANFE NFC-e"
-        );
-        $this->infNFeSupl = $infNFeSupl;
-        return $infNFeSupl;
+        //BAIRRO / DISTRITO
+        $x += $w;
+        
+        $w = round($maxW*0.30, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'BAIRRO / DISTRITO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue)) {
+
+            $texto = $this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue;
+        }
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //CEP
+        $x += $w;
+        
+        $w = round($maxW * 0.23, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'CEP';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("CEP")->item(0)->nodeValue)) {
+
+            $texto = ! empty($this->retirada->getElementsByTagName("CEP")->item(0)->nodeValue) ?
+                $this->retirada->getElementsByTagName("CEP")->item(0)->nodeValue : '';
+        }
+
+        $texto = $this->pFormat($texto, "#####-###");
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //MUNICÍPIO
+        
+        $w = round($maxW * 0.7350, 0);
+        
+        $y += $h;
+        
+        $x = $oldX;
+
+        $texto = 'MUNICÍPIO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue)) {
+ 
+            $texto = $this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue;
+            
+            if (strtoupper(trim($texto)) == "EXTERIOR" && $this->retirada->getElementsByTagName("xPais")->length > 0) {
+                $texto .= " - " .  $this->retirada->getElementsByTagName("xPais")->item(0)->nodeValue;
+            }
+        }
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+
+        //UF
+        
+        $x += $w;
+        
+        $w = 8;
+        
+        $texto = 'UF';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("UF")->item(0)->nodeValue)) {
+ 
+            $texto = $this->retirada->getElementsByTagName("UF")->item(0)->nodeValue;
+        }
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //FONE / FAX
+        $x += $w;
+        
+        $w = round($maxW * 0.23, 0);
+        
+        $w3 = $w;
+
+        $texto = 'FONE / FAX';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->retirada->getElementsByTagName("fone")->item(0)->nodeValue)) {
+ 
+            $texto = ! empty($this->retirada->getElementsByTagName("fone")->item(0)->nodeValue) ?
+                     $this->retirada->getElementsByTagName("fone")->item(0)->nodeValue : '';
+        }
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        return ($y + $h);
+
     }
 
         /**
-     * Informações do Responsável técnico ZD01 pai A01
-     * tag NFe/infNFe/infRespTec (opcional)
-     * @param stdClass $std
-     * @return DOMElement
-     * @throws RuntimeException
-     */
-    public function taginfRespTec(stdClass $std)
-    {
-        $possible = [
-            'CNPJ',
-            'xContato',
-            'email',
-            'fone',
-            'CSRT',
-            'idCSRT'
-        ];
-        
-        $std = $this->equilizeParameters($std, $possible);
-        $infRespTec = $this->dom->createElement("infRespTec");
-        $this->dom->addChild(
-            $infRespTec,
-            "CNPJ",
-            $std->CNPJ,
-            true,
-            "Informar o CNPJ da pessoa jurídica responsável pelo sistema "
-            . "utilizado na emissão do documento fiscal eletrônico"
-        );
-        $this->dom->addChild(
-            $infRespTec,
-            "xContato",
-            $std->xContato,
-            true,
-            "Informar o nome da pessoa a ser contatada na empresa desenvolvedora "
-            . "do sistema utilizado na emissão do documento fiscal eletrônico"
-        );
-        $this->dom->addChild(
-            $infRespTec,
-            "email",
-            $std->email,
-            true,
-            "Informar o e-mail da pessoa a ser contatada na empresa "
-            . "desenvolvedora do sistema."
-        );
-        $this->dom->addChild(
-            $infRespTec,
-            "fone",
-            $std->fone,
-            true,
-            "Informar o telefone da pessoa a ser contatada na empresa "
-            . "desenvolvedora do sistema."
-        );
-        if (!empty($std->CSRT) && !empty($std->idCSRT)) {
-            $this->csrt = $std->CSRT;
-            $this->dom->addChild(
-                $infRespTec,
-                "idCSRT",
-                $std->idCSRT,
-                true,
-                "Identificador do CSRT utilizado para montar o hash do CSRT"
-            );
-            $this->dom->addChild(
-                $infRespTec,
-                "hashCSRT",
-                $this->hashCSRT($std->CSRT),
-                true,
-                "hash do CSRT"
-            );
-        }
-        $this->infRespTec = $infRespTec;
-        return $infRespTec;
-    }
-
-    /**
-     * Tag raiz da NFe
-     * tag NFe DOMNode
-     * Função chamada pelo método [ monta ]
+     * RetiradaDANFE
+     * Monta o campo com os dados de entrega na DANFE. (retrato e paisagem)
      *
-     * @return DOMElement
+     * @name   entregaDANFE
+     * @param  number $x Posição horizontal canto esquerdo
+     * @param  number $y Posição vertical canto superior
+     * @return number Posição vertical final
      */
-    protected function buildNFe()
-    {
-        if (empty($this->NFe)) {
-            $this->NFe = $this->dom->createElement("NFe");
-            $this->NFe->setAttribute("xmlns", "http://www.portalfiscal.inf.br/nfe");
-        }
-        return $this->NFe;
-    }
+    private function pEntregaDANFE ($x = 0, $y = 0){
 
-    /**
-     * Informação de Documentos Fiscais referenciados BA01 pai B01
-     * tag NFe/infNFe/ide/NFref
-     * Podem ser criados até 500 desses Nodes por NFe
-     * Função chamada pelos métodos
-     * [tagrefNFe] [tagrefNF] [tagrefNFP]  [tagCTeref] [tagrefECF]
-     */
-    protected function buildNFref()
-    {
-        $this->aNFref[] = $this->dom->createElement("NFref");
-        return count($this->aNFref);
-    }
+        $oldX = $x;
 
-    /**
-     * Insere dentro dentro das tags imposto o ICMS IPI II PIS COFINS ISSQN
-     * tag NFe/infNFe/det[]/imposto
-     * @return void
-     */
-    protected function buildImp()
-    {
-        foreach ($this->aImposto as $nItem => $imposto) {
-            if (!empty($this->aICMS[$nItem])) {
-                $this->dom->appChild($imposto, $this->aICMS[$nItem], "Inclusão do node ICMS");
-            }
-            if (!empty($this->aIPI[$nItem])) {
-                $this->dom->appChild($imposto, $this->aIPI[$nItem], "Inclusão do node IPI");
-            }
-            if (!empty($this->aII[$nItem])) {
-                $this->dom->appChild($imposto, $this->aII[$nItem], "Inclusão do node II");
-            }
-            if (!empty($this->aISSQN[$nItem])) {
-                $this->dom->appChild($imposto, $this->aISSQN[$nItem], "Inclusão do node ISSQN");
-            }
-            if (!empty($this->aPIS[$nItem])) {
-                $this->dom->appChild($imposto, $this->aPIS[$nItem], "Inclusão do node PIS");
-            }
-            if (!empty($this->aPISST[$nItem])) {
-                $this->dom->appChild($imposto, $this->aPISST[$nItem], "Inclusão do node PISST");
-            }
-            if (!empty($this->aCOFINS[$nItem])) {
-                $this->dom->appChild($imposto, $this->aCOFINS[$nItem], "Inclusão do node COFINS");
-            }
-            if (!empty($this->aCOFINSST[$nItem])) {
-                $this->dom->appChild($imposto, $this->aCOFINSST[$nItem], "Inclusão do node COFINSST");
-            }
-            if (!empty($this->aICMSUFDest[$nItem])) {
-                $this->dom->appChild($imposto, $this->aICMSUFDest[$nItem], "Inclusão do node ICMSUFDest");
-            }
-            $this->aImposto[$nItem] = $imposto;
-        }
-    }
+        $oldY = $y;
 
-    /**
-     * Grupo COFINS tributado pela alíquota S02 pai S01
-     * tag det/imposto/COFINS/COFINSAliq (opcional)
-     * Função chamada pelo método [ tagCOFINS ]
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    protected function buildCOFINSAliq($std)
-    {
-        $confinsAliq = $this->dom->createElement('COFINSAliq');
-        $this->dom->addChild(
-            $confinsAliq,
-            'CST',
-            $std->CST,
-            true,
-            "Código de Situação Tributária da COFINS"
-        );
-        $this->dom->addChild(
-            $confinsAliq,
-            'vBC',
-            $std->vBC,
-            true,
-            "Valor da Base de Cálculo da COFINS"
-        );
-        $this->dom->addChild(
-            $confinsAliq,
-            'pCOFINS',
-            $std->pCOFINS,
-            true,
-            "Alíquota da COFINS (em percentual)"
-        );
-        $this->dom->addChild(
-            $confinsAliq,
-            'vCOFINS',
-            $std->vCOFINS,
-            true,
-            "Valor da COFINS"
-        );
-        return $confinsAliq;
-    }
-
-    /**
-     * Grupo COFINS não tributado S04 pai S01
-     * tag NFe/infNFe/det[]/imposto/COFINS/COFINSNT (opcional)
-     * Função chamada pelo método [ tagCOFINS ]
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    protected function buildCOFINSNT(stdClass $std)
-    {
-        $confinsnt = $this->dom->createElement('COFINSNT');
-        $this->dom->addChild(
-            $confinsnt,
-            "CST",
-            $std->CST,
-            true,
-            "Código de Situação Tributária da COFINS"
-        );
-        return $confinsnt;
-    }
-
-    /**
-     * Grupo COFINS Outras Operações S05 pai S01
-     * tag NFe/infNFe/det[]/imposto/COFINS/COFINSoutr (opcional)
-     * Função chamada pelo método [ tagCOFINS ]
-     * @param stdClass $std
-     * @return DOMElement
-     */
-    protected function buildCOFINSoutr(stdClass $std)
-    {
-        $confinsoutr = $this->dom->createElement('COFINSOutr');
-        $this->dom->addChild(
-            $confinsoutr,
-            "CST",
-            $std->CST,
-            true,
-            "Código de Situação Tributária da COFINS"
-        );
-        $this->dom->addChild(
-            $confinsoutr,
-            "vBC",
-            $std->vBC,
-            ($std->vBC !== null) ? true : false,
-            "Valor da Base de Cálculo da COFINS"
-        );
-        $this->dom->addChild(
-            $confinsoutr,
-            "pCOFINS",
-            $std->pCOFINS,
-            ($std->pCOFINS !== null) ? true : false,
-            "Alíquota da COFINS (em percentual)"
-        );
-        $this->dom->addChild(
-            $confinsoutr,
-            "qBCProd",
-            $std->qBCProd,
-            ($std->qBCProd !== null) ? true : false,
-            "Quantidade Vendida"
-        );
-        $this->dom->addChild(
-            $confinsoutr,
-            "vAliqProd",
-            $std->vAliqProd,
-            ($std->vAliqProd !== null) ? true : false,
-            "Alíquota da COFINS (em reais)"
-        );
-        $this->dom->addChild(
-            $confinsoutr,
-            "vCOFINS",
-            $std->vCOFINS,
-            true,
-            "Valor da COFINS"
-        );
-        return $confinsoutr;
-    }
-
-    /**
-     * Insere dentro da tag det os produtos
-     * tag NFe/infNFe/det[]
-     * @return array|string
-     */
-    protected function buildDet()
-    {
-        if (empty($this->aProd)) {
-            return '';
-        }
-        //insere NVE
-        foreach ($this->aNVE as $nItem => $nve) {
-            $prod = $this->aProd[$nItem];
-            foreach ($nve as $child) {
-                $node = $prod->getElementsByTagName("cBenef")->item(0);
-                if (empty($node)) {
-                    $node = $prod->getElementsByTagName("EXTIPI")->item(0);
-                    if (empty($node)) {
-                        $node = $prod->getElementsByTagName("CFOP")->item(0);
-                    }
-                }
-                $prod->insertBefore($child, $node);
-            }
-        }
-        //insere CEST
-        foreach ($this->aCest as $nItem => $cest) {
-            $prod = $this->aProd[$nItem];
-            /** @var \DOMElement $child */
-            foreach ($cest as $child) {
-                $node = $prod->getElementsByTagName("cBenef")->item(0);
-                if (empty($node)) {
-                    $node = $prod->getElementsByTagName("EXTIPI")->item(0);
-                    if (empty($node)) {
-                        $node = $prod->getElementsByTagName("CFOP")->item(0);
-                    }
-                }
-                $cchild = $child->getElementsByTagName("CEST")->item(0);
-                $prod->insertBefore($cchild, $node);
-                $cchild = $child->getElementsByTagName("indEscala")->item(0);
-                if (!empty($cchild)) {
-                    $prod->insertBefore($cchild, $node);
-                }
-                $cchild = $child->getElementsByTagName("CNPJFab")->item(0);
-                if (!empty($cchild)) {
-                    $prod->insertBefore($cchild, $node);
-                    $this->aProd[$nItem] = $prod;
-                }
-            }
-        }
-        //insere DI
-        foreach ($this->aDI as $nItem => $aDI) {
-            $prod = $this->aProd[$nItem];
-            foreach ($aDI as $child) {
-                $node = $prod->getElementsByTagName("xPed")->item(0);
-                if (!empty($node)) {
-                    $prod->insertBefore($child, $node);
-                } else {
-                    $node = $prod->getElementsByTagName("nItemPed")->item(0);
-                    if (!empty($node)) {
-                        $prod->insertBefore($child, $node);
-                    } else {
-
-                        $node = $prod->getElementsByTagName("nItemPed")->item(0);
-
-                        if (!empty($node)) {
-                            $prod->insertBefore($child, $node);
-                        } else {
-
-                            $node = $prod->getElementsByTagName("nFCI")->item(0);
-
-                            if (!empty($node)) {
-                                $prod->insertBefore($child, $node);
-                            } else {
-                                $this->dom->appChild($prod, $child, "Inclusão do node DI");
-                            }
-                            
-                        }
-
-                    }
-                }
-            }
-            $this->aProd[$nItem] = $prod;
-        }
-        //insere detExport
-        foreach ($this->aDetExport as $nItem => $detexport) {
-            $prod = $this->aProd[$nItem];
-            foreach ($detexport as $child) {
-                $node = $prod->getElementsByTagName("xPed")->item(0);
-                if (!empty($node)) {
-                    $prod->insertBefore($child, $node);
-                } else {
-                    $this->dom->appChild($prod, $child, "Inclusão do node DetExport");
-                }
-            }
-
-            $this->aProd[$nItem] = $prod;
-        }
-        //insere Rastro
-        foreach ($this->aRastro as $nItem => $rastros) {
-            
-            $prod = $this->aProd[$nItem];
-
-            foreach ($rastros as $rastro) {
-                
-                $this->dom->appChild($prod, $rastro, "Inclusão do node Rastro");
-                
-                $this->aProd[$nItem] = $prod;
-
-            }
-        }
-        //insere veiculo
-        foreach ($this->aVeicProd as $nItem => $child) {
-            $prod = $this->aProd[$nItem];
-            $this->dom->appChild($prod, $child, "Inclusão do node veiculo");
-            $this->aProd[$nItem] = $prod;
-        }
-        //insere medicamentos
-        foreach ($this->aMed as $nItem => $child) {
-            $prod = $this->aProd[$nItem];
-            $this->dom->appChild($prod, $child, "Inclusão do node medicamento");
-            $this->aProd[$nItem] = $prod;
-        }
-        //insere armas
-        foreach ($this->aArma as $nItem => $arma) {
-            $prod = $this->aProd[$nItem];
-            foreach ($arma as $child) {
-                $node = $prod->getElementsByTagName("imposto")->item(0);
-                if (!empty($node)) {
-                    $prod->insertBefore($child, $node);
-                } else {
-                    $this->dom->appChild($prod, $child, "Inclusão do node arma");
-                }
-            }
-            $this->aProd[$nItem] = $prod;
-        }
-        //insere combustivel
-        foreach ($this->aComb as $nItem => $child) {
-            $prod = $this->aProd[$nItem];
-            if (!empty($this->aEncerrante)) {
-                $encerrante = $this->aEncerrante[$nItem];
-                if (!empty($encerrante)) {
-                    $this->dom->appChild($child, $encerrante, "inclusão do node encerrante na tag comb");
-                }
-            }
-            $this->dom->appChild($prod, $child, "Inclusão do node combustivel");
-            $this->aProd[$nItem] = $prod;
-        }
-        //insere RECOPI
-        foreach ($this->aRECOPI as $nItem => $child) {
-            $prod = $this->aProd[$nItem];
-            $this->dom->appChild($prod, $child, "Inclusão do node RECOPI");
-            $this->aProd[$nItem] = $prod;
-        }
-        //montagem da tag imposto[]
-        $this->buildImp();
-        //montagem da tag det[]
-        foreach ($this->aProd as $nItem => $prod) {
-            $det = $this->dom->createElement("det");
-            $det->setAttribute("nItem", $nItem);
-            $det->appendChild($prod);
-            //insere imposto
-            if (!empty($this->aImposto[$nItem])) {
-                $child = $this->aImposto[$nItem];
-                $this->dom->appChild($det, $child, "Inclusão do node imposto");
-            }
-            //insere impostoDevol
-
-            if (!empty($this->aImpostoDevol[$nItem])) {
-                $child = $this->aImpostoDevol[$nItem];
-                $this->dom->appChild($det, $child, "Inclusão do node impostoDevol");
-            }
-            //insere infAdProd
-            if (!empty($this->aInfAdProd[$nItem])) {
-                $child = $this->aInfAdProd[$nItem];
-                $this->dom->appChild($det, $child, "Inclusão do node infAdProd");
-            }
-            $this->aDet[] = $det;
-            $det = null;
-        }
-        return $this->aProd;
-    }
-
-
-    /**
-     * Insere a tag pag, os detalhamentos dos pagamentos e cartoes
-     * NOTA: Ajustado para NT2016_002_v1.30
-     * Somente para modelo 65
-     * tag NFe/infNFe/pag/
-     * tag NFe/infNFe/pag/detPag[]
-     * tag NFe/infNFe/pag/detPag[]/Card
-     */
-    protected function buildTagPag()
-    {
-        if ($this->mod == '55' && $this->version == '3.10') {
-            return;
-        }
-        if (count($this->aPag) > 0) {
-            foreach ($this->aPag as $pag) {
-                $this->dom->appChild($this->infNFe, $pag, 'Falta tag "infNFe"');
-            }
-        }
-    }
-
-    /**
-     * Grupo Totais da NF-e W01 pai A01
-     * tag NFe/infNFe/total
-     */
-    protected function buildTotal(){
-        if (empty($this->total)) {
-            $this->total = $this->dom->createElement("total");
-        }
-
-        $this->stdTot->vNF = $this->stdTot->vProd
-            - $this->stdTot->vDesc
-            + $this->stdTot->vST
-            + $this->stdTot->vFrete
-            + $this->stdTot->vSeg
-            + $this->stdTot->vOutro
-            + $this->stdTot->vII
-            + $this->stdTot->vIPI
-            + $this->stdTot->vIPIDevol;
-
-        //round all values
-        $this->stdTot->vBC = round($this->stdTot->vBC, 2);
-        $this->stdTot->vICMS = round($this->stdTot->vICMS, 2);
-        $this->stdTot->vICMSDeson = round($this->stdTot->vICMSDeson, 2);
-        $this->stdTot->vFCP = round($this->stdTot->vFCP, 2);
-        $this->stdTot->vFCPUFDest = round($this->stdTot->vFCPUFDest, 2);
-        $this->stdTot->vICMSUFDest = round($this->stdTot->vICMSUFDest, 2);
-        $this->stdTot->vICMSUFRemet = round($this->stdTot->vICMSUFRemet, 2);
-        $this->stdTot->vBCST = round($this->stdTot->vBCST, 2);
-        $this->stdTot->vST = round($this->stdTot->vST, 2);
-        $this->stdTot->vFCPST = round($this->stdTot->vFCPST, 2);
-        $this->stdTot->vFCPSTRet = round($this->stdTot->vFCPSTRet, 2);
-        $this->stdTot->vProd = round($this->stdTot->vProd, 2);
-        $this->stdTot->vFrete = round($this->stdTot->vFrete, 2);
-        $this->stdTot->vSeg = round($this->stdTot->vSeg, 2);
-        $this->stdTot->vDesc = round($this->stdTot->vDesc, 2);
-        $this->stdTot->vII = round($this->stdTot->vII, 2);
-        $this->stdTot->vIPI = round($this->stdTot->vIPI, 2);
-        $this->stdTot->vIPIDevol = round($this->stdTot->vIPIDevol, 2);
-        $this->stdTot->vPIS = round($this->stdTot->vPIS, 2);
-        $this->stdTot->vCOFINS = round($this->stdTot->vCOFINS, 2);
-        $this->stdTot->vOutro = round($this->stdTot->vOutro, 2);
-        $this->stdTot->vNF = round($this->stdTot->vNF, 2);
-        $this->stdTot->vTotTrib = round($this->stdTot->vTotTrib, 2);
-    }
-
-
-    /**
-     * Grupo Cobrança Y01 pai A01
-     * tag NFe/infNFe/cobr (opcional)
-     * Depende de fat
-     */
-    protected function buildCobr()
-    {
-        if (empty($this->cobr)) {
-            $this->cobr = $this->dom->createElement("cobr");
-        }
-    }
-
-    /**
-     * Grupo de Informações Adicionais Z01 pai A01
-     * tag NFe/infNFe/infAdic (opcional)
-     * Função chamada pelos metodos
-     * [taginfAdic] [tagobsCont] [tagobsFisco] [tagprocRef]
-     * @return DOMElement
-     */
-    protected function buildInfAdic()
-    {
-        if (empty($this->infAdic)) {
-            $this->infAdic = $this->dom->createElement("infAdic");
-        }
-        return $this->infAdic;
-    }
-
-    /**
-     * Remonta a chave da NFe de 44 digitos com base em seus dados
-     * já contidos na NFE.
-     * Isso é útil no caso da chave informada estar errada
-     * se a chave estiver errada a mesma é substituida
-     * @param Dom $dom
-     * @return void
-     */
-    protected function checkNFeKey(Dom $dom)
-    {
-        $infNFe = $dom->getElementsByTagName("infNFe")->item(0);
-        $ide = $dom->getElementsByTagName("ide")->item(0);
-        $emit = $dom->getElementsByTagName("emit")->item(0);
-        $cUF = $ide->getElementsByTagName('cUF')->item(0)->nodeValue;
-        $dhEmi = $ide->getElementsByTagName('dhEmi')->item(0)->nodeValue;
-        if (!empty($emit->getElementsByTagName('CNPJ')->item(0)->nodeValue)) {
-            $doc = $emit->getElementsByTagName('CNPJ')->item(0)->nodeValue;
+        if ($this->orientacao == 'P') {
+            $maxW = $this->wPrint;
         } else {
-            $doc = $emit->getElementsByTagName('CPF')->item(0)->nodeValue;
+            $maxW = $this->wPrint - $this->wCanhoto;
         }
-        $mod = $ide->getElementsByTagName('mod')->item(0)->nodeValue;
-        $serie = $ide->getElementsByTagName('serie')->item(0)->nodeValue;
-        $nNF = $ide->getElementsByTagName('nNF')->item(0)->nodeValue;
-        $tpEmis = $ide->getElementsByTagName('tpEmis')->item(0)->nodeValue;
-        $cNF = $ide->getElementsByTagName('cNF')->item(0)->nodeValue;
-        $chave = str_replace('NFe', '', $infNFe->getAttribute("Id"));
-        $dt = new DateTime($dhEmi);
-        $infRespTec = $dom->getElementsByTagName("infRespTec")->item(0);
-        $chaveMontada = Keys::build(
-            $cUF,
-            $dt->format('y'),
-            $dt->format('m'),
-            $doc,
-            $mod,
-            $serie,
-            $nNF,
-            $tpEmis,
-            $cNF
-        );
-        //caso a chave contida na NFe esteja errada
-        //substituir a chave
-        if ($chaveMontada != $chave) {
-            //throw new RuntimeException("A chave informada é diferente da chave
-            //montada com os dados [correto: $chaveMontada].");
-            $ide->getElementsByTagName('cDV')->item(0)->nodeValue = substr($chaveMontada, -1);
-            $infNFe = $dom->getElementsByTagName("infNFe")->item(0);
-            $infNFe->setAttribute("Id", "NFe" . $chaveMontada);
-            $this->chNFe = $chaveMontada;
-            //trocar também o hash se o CSRT for passado
-            if (!empty($this->csrt)) {
-                $hashCSRT = $this->hashCSRT($this->csrt);
-                $infRespTec->getElementsByTagName("hashCSRT")
-                    ->item(0)->nodeValue = $hashCSRT;
+
+        $w = $maxW;
+
+        $h = 7;
+
+        $texto = "INFORMAÇÕES DO LOCAL DE ENTREGA";
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+
+        $y += 3;
+
+        //NOME / RAZÃO SOCIAL
+        $w = round($maxW*0.61, 0);
+        
+        $w1 = $w;
+
+        $texto = 'NOME / RAZÃO SOCIAL';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("xNome")->item(0)->nodeValue)) {
+
+            $texto = $this->entrega->getElementsByTagName("xNome")->item(0)->nodeValue;
+        }
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+        } else {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 1, '');
+        }
+
+         //CNPJ / CPF
+        $x += $w;
+        
+        $w = round($maxW*0.23, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'CNPJ / CPF';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        //Pegando valor do CPF/CNPJ
+        
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue) || ! empty($this->entrega->getElementsByTagName("CPF")->item(0)->nodeValue)) {
+
+            if (! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue)) {
+                $texto = $this->pFormat(
+                    $this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue,
+                    "###.###.###/####-##"
+                );
+            } else {
+                $texto = ! empty($this->entrega->getElementsByTagName("CPF")->item(0)->nodeValue) ?
+                        $this->pFormat(
+                            $this->entrega->getElementsByTagName("CPF")->item(0)->nodeValue,
+                            "###.###.###-##"
+                        ) : '';
+            }
+
+        }
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //Inscrição municipal
+        $x += $w;
+
+        $w = $maxW-($w1+$w2);
+
+        $wx = $w;
+
+        $texto = 'INSCRIÇÃO ESTADUAL';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("IE")->item(0)->nodeValue)) {
+
+            $texto = $this->entrega->getElementsByTagName("IE")->item(0)->nodeValue;
+        }
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        if ($this->orientacao == 'P') {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+        } else {
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 1, '');
+        }
+
+        //ENDEREÇO
+        $w = round($maxW*0.47, 0);
+        
+        $w1 = $w;
+        
+        $y += $h;
+        
+        $x = $oldX;
+
+        $texto = 'ENDEREÇO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue)) {
+
+            $texto = $this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue;
+        }
+        
+        $texto .= ', ' . $this->entrega->getElementsByTagName("nro")->item(0)->nodeValue;
+        
+        $texto .= $this->pSimpleGetValue($this->entrega, "xCpl", " - ");
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '', true);
+
+        //BAIRRO / DISTRITO
+        $x += $w;
+        
+        $w = round($maxW*0.30, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'BAIRRO / DISTRITO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue)) {
+
+            $texto = $this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue;
+        }
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //CEP
+        $x += $w;
+        
+        $w = round($maxW * 0.23, 0);
+        
+        $w2 = $w;
+        
+        $texto = 'CEP';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("CEP")->item(0)->nodeValue)) {
+
+            $texto = ! empty($this->entrega->getElementsByTagName("CEP")->item(0)->nodeValue) ?
+                $this->entrega->getElementsByTagName("CEP")->item(0)->nodeValue : '';
+        }
+
+        $texto = $this->pFormat($texto, "#####-###");
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
+
+        //MUNICÍPIO
+        
+        $w = round($maxW * 0.7350, 0);
+        
+        $y += $h;
+        
+        $x = $oldX;
+
+        $texto = 'MUNICÍPIO';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue)) {
+ 
+            $texto = $this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue;
+            
+            if (strtoupper(trim($texto)) == "EXTERIOR" && $this->entrega->getElementsByTagName("xPais")->length > 0) {
+                $texto .= " - " .  $this->entrega->getElementsByTagName("xPais")->item(0)->nodeValue;
             }
         }
-    }
 
-    /**
-     * Includes missing or unsupported properties in stdClass
-     * @param stdClass $std
-     * @param array $possible
-     * @return stdClass
-     */
-    protected function equilizeParameters(stdClass $std, $possible)
-    {
-        $arr = get_object_vars($std);
-        foreach ($possible as $key) {
-            if (!array_key_exists($key, $arr)) {
-                $std->$key = null;
-            }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'L', 0, '');
+
+        //UF
+        
+        $x += $w;
+        
+        $w = 8;
+        
+        $texto = 'UF';
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("UF")->item(0)->nodeValue)) {
+ 
+            $texto = $this->entrega->getElementsByTagName("UF")->item(0)->nodeValue;
         }
-        return $std;
-    }
+        
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
 
-    private function transformMoney($number, $decimal, $dec_point, $thousands_sep){
+        //FONE / FAX
+        $x += $w;
+        
+        $w = round($maxW * 0.23, 0);
+        
+        $w3 = $w;
 
-        if (is_numeric($number)){
-            return number_format($number, $decimal, $dec_point, $thousands_sep);
+        $texto = 'FONE / FAX';
+
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
+        
+        $texto = '';
+
+        if (! empty($this->entrega->getElementsByTagName("fone")->item(0)->nodeValue)) {
+ 
+            $texto = ! empty($this->entrega->getElementsByTagName("fone")->item(0)->nodeValue) ?
+                     $this->entrega->getElementsByTagName("fone")->item(0)->nodeValue : '';
         }
 
-        return $number;
-    }
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
+        
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
 
-    /**
-     * Calcula hash sha1 retornando Base64Binary
-     * @param string $CSRT
-     * @return string
-    */
-    protected function hashCSRT($CSRT){
-        $comb = $CSRT . $this->chNFe;
-        return base64_encode(sha1($comb));
+        return ($y + $h);
+
     }
 }
