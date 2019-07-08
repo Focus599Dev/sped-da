@@ -2584,8 +2584,11 @@ class Danfe extends Common
 
                     $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
 
-                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);   
+                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);
+
+                    $h2 = $h;   
                 }
+
                 $hUsado += $h;
                 if ($pag != $totpag) {
                     if ($hUsado >= $hmax && $i < $totItens) {
