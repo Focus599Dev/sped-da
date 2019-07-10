@@ -714,7 +714,7 @@ class Danfe extends Common
             $hcanhoto = $this->hPrint;//para canhoto
             $w = $this->wPrint - $this->wCanhoto;
         }
-        $hDispo2 = $this->hPrint - 10 - ($hcabecalho)-15;
+        $hDispo2 = $this->hPrint - 10 - ($hcabecalho)-4;
         //Contagem da altura ocupada para impressão dos itens
         $fontProduto = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
         $i = 0;
@@ -846,7 +846,7 @@ class Danfe extends Common
             //coloca o cabeçalho na página adicional
             $y = $this->pCabecalhoDANFE($x, $y, $n, $totPag);
             //coloca os itens na página adicional
-            $y = $this->pItensDANFE($x, $y+1, $nInicial, $hDispo2, $n, $totPag, $hCabecItens, $hasTagMed);
+            $y = $this->pItensDANFE($x, $y, $nInicial, $hDispo2, $n, $totPag, $hCabecItens, $hasTagMed);
             //coloca o rodapé da página
             if ($this->orientacao == 'P') {
                 $this->pRodape($xInic, $y + 4);
@@ -879,6 +879,7 @@ class Danfe extends Common
 
             $y = $this->pDadosAdicionaisDANFE($x, $y, $hdadosadic);
         }
+
         //retorna o ID na NFe
         if ($classPdf!==false) {
             $aR = array(
@@ -2592,7 +2593,7 @@ class Danfe extends Common
 
                 $hUsado += $h;
                 if ($pag != $totpag) {
-                    if ($hUsado >= $hmax && $i < $totItens) {
+                    if ($hUsado >= ($hmax - $h)  && $i < $totItens) {
                         //ultrapassa a capacidade para uma única página
                         //o restante dos dados serão usados nas proximas paginas
                         $nInicio = $i;
