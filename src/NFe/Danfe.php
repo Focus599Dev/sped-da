@@ -1947,7 +1947,8 @@ class Danfe extends Common
         if ($this->exibirIcmsInterestadual) {
             $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "V. ICMS UF REMET.", "vICMSUFRemet");
             
-            if ($this->ICMSTot->getElementsByTagName('vFCP')->item(0)->nodeValue != 0.00){
+            if ($this->ICMSTot->getElementsByTagName('vFCP')->item(0) && $this->ICMSTot->getElementsByTagName('vFCP')->item(0)->nodeValue != 0.00){
+                
                 $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FCP", "vFCP");
             } else {
                 $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FCP", "vFCPUFDest");
