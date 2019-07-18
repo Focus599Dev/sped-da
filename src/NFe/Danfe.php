@@ -2365,9 +2365,9 @@ class Danfe extends Common
         $tmp_ad = ($this->descProdInfoComplemento ? $medTxt . $impostos . $nFCI : '');
         $texto = $prod->getElementsByTagName("xProd")->item(0)->nodeValue . (strlen($tmp_ad)!=0?"\n    ".$tmp_ad:'');
 
-        // if ( trim($infAdProd) ){
-        //     $texto .= "\n" . $infAdProd;
-        // }
+        if ( trim($infAdProd) ){
+            $texto .= "\n" . $infAdProd;
+         }
 
         if ($this->descProdQuebraLinha) {
             $texto = str_replace(";", "\n", $texto);
