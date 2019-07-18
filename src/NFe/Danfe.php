@@ -2367,7 +2367,7 @@ class Danfe extends Common
 
         if ( trim($infAdProd) ){
             $texto .= "\n" . $infAdProd;
-         }
+        }
 
         if ($this->descProdQuebraLinha) {
             $texto = str_replace(";", "\n", $texto);
@@ -2572,7 +2572,7 @@ class Danfe extends Common
 
                     $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);   
 
-                    $textoExplode = implode('\n', $textoExplode);
+                    $textoExplode = implode("\n", $textoExplode);
 
                     $linhaDescr = $this->pGetNumLines($textoExplode, $w2, $aFontFCI);
 
