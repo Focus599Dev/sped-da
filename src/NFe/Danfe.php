@@ -1192,9 +1192,9 @@ class Danfe extends Common
             $CEP = $this->pFormat($CEP, "#####-###");
             $mun = $this->pSimpleGetValue($this->enderEmit, "xMun");
             $UF = $this->pSimpleGetValue($this->enderEmit, "UF");
-            $texto = $lgr . ", " . $nro . $cpl . "\n" . $bairro . " - "
-                    . $CEP . "\n" . $mun . " - " . $UF . " "
-                    . "Fone/Fax: " . $fone;
+            $texto = $lgr . ", " . $nro . $cpl . "-" . $bairro . "\n"
+                    . $CEP . " - " . $mun . "|" . $UF . "\n"
+                    . "Fone: " . $fone . '|' . 'email:sac@marcolin.com.br';
             $this->pTextBox($x1, $y1, $tw, 8, $texto, $aFont, 'T', 'C', 0, '');
         }
 
