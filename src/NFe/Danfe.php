@@ -2593,14 +2593,12 @@ class Danfe extends Common
                 }
 
                 $hUsado += $h;
-                if ($pag != $totpag) {
-                    if ($hUsado >= ($hmax - $h)  && $i < $totItens) {
-                        //ultrapassa a capacidade para uma única página
-                        //o restante dos dados serão usados nas proximas paginas
-                        $nInicio = $i;
-                        break;
-                    }
+                
+                if ($hUsado >= ($hmax - $h)  && $i < $totItens) {
+                    $nInicio = $i;
+                    break;
                 }
+                
 
                 $y_linha=$y+$h;
                 // linha entre itens
