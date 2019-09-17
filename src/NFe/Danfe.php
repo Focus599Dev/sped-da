@@ -2387,7 +2387,7 @@ class Danfe extends Common
      * @param  float $hmax    Altura máxima do campo de itens em mm
      * @return float Posição vertical final
      */
-    protected function pItensDANFE($x, $y, &$nInicio, $hmax, $pag = 0, $totpag = 0, $hCabecItens = 7, $hasTagMed = false)
+    protected function pItensDANFE($x, $y, &$nInicio, $hmax, $pag = 0, &$totpag = 0, $hCabecItens = 7, $hasTagMed = false)
     {
         $oldX = $x;
         $oldY = $y;
@@ -2593,12 +2593,25 @@ class Danfe extends Common
 
                 $hUsado += $h;
                 if ($pag != $totpag) {
+
                     if ($hUsado >= ($hmax - $h)  && $i < $totItens) {
                         //ultrapassa a capacidade para uma única página
                         //o restante dos dados serão usados nas proximas paginas
                         $nInicio = $i;
                         break;
+                    } 
+
+                } else {
+
+                    if ($hUsado >= ($hmax - $h)){
+                        
+                        $totpag = $totpag + 1;
+
+                        $nInicio = $i;
+
+                        break;
                     }
+
                 }
 
                 $y_linha=$y+$h;
