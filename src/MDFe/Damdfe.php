@@ -2,10 +2,8 @@
 
 namespace NFePHP\DA\MDFe;
 
-<<<<<<< HEAD
 require_once ( __DIR__ . "/../Legacy/QRCode/qrlib.php");
-=======
->>>>>>> 36fcf0a4f9f5021b6db22578282ac0ea14c4cb8b
+
 /**
  * Esta classe gera do PDF do MDFDe, conforme regras e estruturas
  * estabelecidas pela SEFAZ.
@@ -65,10 +63,7 @@ class Damdfe extends Common
     private $infEvento;
     private $retEvento;
     private $rinfEvento;
-<<<<<<< HEAD
     private $pathBarcode;
-=======
->>>>>>> 36fcf0a4f9f5021b6db22578282ac0ea14c4cb8b
     /**
      * __construct
      *
@@ -266,13 +261,11 @@ class Damdfe extends Common
         $y = $this->bodyMDFe($x, $y);
         //coloca os dados da MDFe
         $y = $this->footerMDFe($x, $y);
-<<<<<<< HEAD
 
         if ($this->dom->getElementsByTagName('qrCodMDFe')->item(0)->nodeValue){
             $this->createQRCode($this->dom->getElementsByTagName('qrCodMDFe')->item(0)->nodeValue);
         }
-=======
->>>>>>> 36fcf0a4f9f5021b6db22578282ac0ea14c4cb8b
+
     } //fim buildCCe
     /**
      * headerMDFePaisagem
@@ -911,7 +904,6 @@ class Damdfe extends Common
         return $arq;
     }//fim printMDFe
 
-<<<<<<< HEAD
     private function createQRCode($qrCode){
         
         $qrCode = htmlspecialchars_decode($qrCode);
@@ -927,19 +919,11 @@ class Damdfe extends Common
         $this->pathBarcode = $folder . $nameTMP;
     }
 
-=======
->>>>>>> 36fcf0a4f9f5021b6db22578282ac0ea14c4cb8b
     /**
      * Dados brutos do PDF
      * @return string
      */
-<<<<<<< HEAD
     public function render(){
-
-=======
-    public function render()
-    {
->>>>>>> 36fcf0a4f9f5021b6db22578282ac0ea14c4cb8b
         return $this->pdf->getPdf();
     }
 }
