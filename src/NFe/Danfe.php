@@ -757,7 +757,7 @@ class Danfe extends Common
         while ($i < $this->det->length) {
             $texto = $this->pDescricaoProduto($this->det->item($i));
             $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
-            $hUsado += ($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.3);
+            $hUsado += round(($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.3), 2);
             if ($hUsado > $hDispo) {
                 $totPag++;
                 $hDispo = $hDispo2;
