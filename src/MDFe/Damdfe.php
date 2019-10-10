@@ -260,10 +260,10 @@ class Damdfe extends Common
         //coloca os dados da MDFe
         $y = $this->bodyMDFe($x, $y);
         //coloca os dados da MDFe
-        $y = $this->footerMDFe($x, $y);
+        $this->footerMDFe($x, $y);
 
         if ($this->dom->getElementsByTagName('qrCodMDFe')->item(0)->nodeValue){
-            $this->createQRCode($this->dom->getElementsByTagName('qrCodMDFe')->item(0)->nodeValue);
+            $this->createQRCode($this->dom->getElementsByTagName('qrCodMDFe')->item(0)->nodeValue, $x, $y);
         }
 
     } //fim buildCCe
@@ -652,20 +652,20 @@ class Damdfe extends Common
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'');
         $this->pTextBox($x1, $y+4, $x2+11, 10, $texto, $aFont, 'T', 'C', 0, '', false);
         $x1 += $x2+11;
-        $this->pTextBox($x1, $y, $x2-15, 12);
+        $this->pTextBox($x1, $y, $x2-10, 12);
         $texto = 'UF Carreg.';
         $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'');
-        $this->pTextBox($x1, $y, $x2-15, 8, $texto, $aFont, 'T', 'L', 0, '', false);
+        $this->pTextBox($x1, $y, $x2-10, 8, $texto, $aFont, 'T', 'L', 0, '', false);
         $texto = $this->UFIni;
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'');
         $this->pTextBox($x1, $y+4, $x2-15, 10, $texto, $aFont, 'T', 'C', 0, '', false);
         $maxW = $this->wPrint;
 
-        $x1 += $x2-15;
-        $this->pTextBox($x1, $y, $x2-13, 12);
-        $texto = 'UF Descar.';
+        $x1 += $x2-10;
+        $this->pTextBox($x1, $y, $x2-9, 12);
+        $texto = 'UF Desc.';
         $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'');
-        $this->pTextBox($x1, $y, $x2-13, 8, $texto, $aFont, 'T', 'L', 0, '', false);
+        $this->pTextBox($x1, $y, $x2-10, 8, $texto, $aFont, 'T', 'L', 0, '', false);
         $texto = $this->UFFim;
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'');
         $this->pTextBox($x1, $y+4, $x2-13, 10, $texto, $aFont, 'T', 'C', 0, '', false);
@@ -678,10 +678,10 @@ class Damdfe extends Common
         $y += 14;
         $this->pTextBox($x1, $y, $x2, 23);
         $texto = 'Modal Rodoviário de Carga';
-        $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'B');
+        $aFont = array('font'=>$this->fontePadrao, 'size'=>12, 'style'=>'B');
         $this->pTextBox($x1, $y+1, $x2, 8, $texto, $aFont, 'T', 'C', 0, '', false);
         $x1 = $x;
-        $x2 = ($maxW / 6);
+        $x2 = ( $maxW / 6 );
         $y += 6;
         $this->pTextBox($x1, $y, $x2, 12);
         $texto = 'Qtd. CT-e';
@@ -857,10 +857,13 @@ class Damdfe extends Common
     private function footerMDFe($x, $y)
     {
         $maxW = $this->wPrint;
-        $x2 = $maxW;
-        $this->pTextBox($x, $y, $x2, 30);
+        $x2 = $maxW - 70.5;
+        $this->pTextBox($x, $y, $x2, 60);
         $texto = 'Observação
         '.$this->infCpl;
+
+        $texto = str_replace(";", "\n", $texto);
+
         $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'');
         $this->pTextBox($x, $y, $x2, 8, $texto, $aFont, 'T', 'L', 0, '', false);
         $y = $this->hPrint -4;
@@ -904,7 +907,13 @@ class Damdfe extends Common
         return $arq;
     }//fim printMDFe
 
-    private function createQRCode($qrCode){
+    private function createQRCode($qrCode, $x, $y){
+
+        $maxW = $this->wPrint;
+
+        $x2 = $maxW - 63;
+
+        $this->pTextBox($x2, $y, 70 , 60);
         
         $qrCode = htmlspecialchars_decode($qrCode);
 
@@ -914,7 +923,7 @@ class Damdfe extends Common
 
         \QRCode::png($qrCode, $folder . $nameTMP);
 
-        $this->pdf->Image($folder . $nameTMP, 245, 150, 50, 50, 'png');
+        $this->pdf->Image($folder . $nameTMP, 232, 120, 50, 50, 'png');
 
         $this->pathBarcode = $folder . $nameTMP;
     }
