@@ -858,7 +858,7 @@ class Damdfe extends Common
     {
         $maxW = $this->wPrint;
         $x2 = $maxW - 70.5;
-        $this->pTextBox($x, $y, $x2, 60);
+        $this->pTextBox($x, $y, $x2, 90);
         $texto = 'Observação
         '.$this->infCpl;
 
@@ -866,11 +866,11 @@ class Damdfe extends Common
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>8, 'style'=>'');
         $this->pTextBox($x, $y, $x2, 8, $texto, $aFont, 'T', 'L', 0, '', false);
-        $y = $this->hPrint -4;
+        $y = $this->hPrint + 10;
         $texto = "Impresso em  ". date('d/m/Y   H:i:s');
         $w = $this->wPrint-4;
         $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'I');
-        $this->pTextBox($x, $y, $w, 4, $texto, $aFont, 'T', 'L', 0, '');
+        $this->pTextBox($x, $y , $w, 4, $texto, $aFont, 'T', 'L', 0, '');
     }//fim footerCCe
     /**
      * printMDFe
@@ -911,9 +911,9 @@ class Damdfe extends Common
 
         $maxW = $this->wPrint;
 
-        $x2 = $maxW - 63;
+        $x2 = $maxW - 63.5;
 
-        $this->pTextBox($x2, $y, 70 , 60);
+        $this->pTextBox($x2, $y, 71 , 90);
         
         $qrCode = htmlspecialchars_decode($qrCode);
 
