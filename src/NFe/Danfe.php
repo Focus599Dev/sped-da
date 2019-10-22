@@ -550,63 +550,68 @@ class Danfe extends Common
         $fontProduto = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
         $this->textoAdic = '';
         // Comentado devido a NT implementar um cabeçario especifico para retirada e entrega
-        // if (isset($this->retirada)) {
-        //     $txRetCNPJ = ! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
-        //         $this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue :
-        //         '';
-        //     $txRetxLgr = ! empty($this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue) ?
-        //         $this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue :
-        //         '';
-        //     $txRetnro = ! empty($this->retirada->getElementsByTagName("nro")->item(0)->nodeValue) ?
-        //         $this->retirada->getElementsByTagName("nro")->item(0)->nodeValue :
-        //         's/n';
-        //     $txRetxCpl = $this->pSimpleGetValue($this->retirada, "xCpl", " - ");
-        //     $txRetxBairro = ! empty($this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue) ?
-        //         $this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue :
-        //         '';
-        //     $txRetxMun = ! empty($this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue) ?
-        //         $this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue :
-        //         '';
-        //     $txRetUF = ! empty($this->retirada->getElementsByTagName("UF")->item(0)->nodeValue) ?
-        //         $this->retirada->getElementsByTagName("UF")->item(0)->nodeValue :
-        //         '';
-        //     $this->textoAdic .= "LOCAL DE RETIRADA : ".
-        //             $txRetCNPJ.
-        //             '-' .
-        //             $txRetxLgr .
-        //             ', ' .
-        //             $txRetnro .
-        //             ' ' .
-        //             $txRetxCpl .
-        //             ' - ' .
-        //             $txRetxBairro .
-        //             ' ' .
-        //             $txRetxMun .
-        //             ' - ' .
-        //             $txRetUF .
-        //             "\r\n";
-        // }
+        if (isset($this->retirada)) {
+            $txRetCNPJ = ! empty($this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
+                $this->retirada->getElementsByTagName("CNPJ")->item(0)->nodeValue :
+                '';
+            $txRetxLgr = ! empty($this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue) ?
+                $this->retirada->getElementsByTagName("xLgr")->item(0)->nodeValue :
+                '';
+            $txRetnro = ! empty($this->retirada->getElementsByTagName("nro")->item(0)->nodeValue) ?
+                $this->retirada->getElementsByTagName("nro")->item(0)->nodeValue :
+                's/n';
+            $txRetxCpl = $this->pSimpleGetValue($this->retirada, "xCpl", " - ");
+            $txRetxBairro = ! empty($this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue) ?
+                $this->retirada->getElementsByTagName("xBairro")->item(0)->nodeValue :
+                '';
+            $txRetxMun = ! empty($this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue) ?
+                $this->retirada->getElementsByTagName("xMun")->item(0)->nodeValue :
+                '';
+            $txRetUF = ! empty($this->retirada->getElementsByTagName("UF")->item(0)->nodeValue) ?
+                $this->retirada->getElementsByTagName("UF")->item(0)->nodeValue :
+                '';
+            $this->textoAdic .= "LOCAL DE RETIRADA : ".
+                    $txRetCNPJ.
+                    '-' .
+                    $txRetxLgr .
+                    ', ' .
+                    $txRetnro .
+                    ' ' .
+                    $txRetxCpl .
+                    ' - ' .
+                    $txRetxBairro .
+                    ' ' .
+                    $txRetxMun .
+                    ' - ' .
+                    $txRetUF .
+                    "\r\n";
+        }
         //dados do local de entrega da mercadoria
-        // if (isset($this->entrega)) {
-        //     $txRetCNPJ = ! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
-        //         $this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue : '';
-        //     $txRetxLgr = ! empty($this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue) ?
-        //         $this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue : '';
-        //     $txRetnro = ! empty($this->entrega->getElementsByTagName("nro")->item(0)->nodeValue) ?
-        //         $this->entrega->getElementsByTagName("nro")->item(0)->nodeValue : 's/n';
-        //     $txRetxCpl = $this->pSimpleGetValue($this->entrega, "xCpl", " - ");
-        //     $txRetxBairro = ! empty($this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue) ?
-        //         $this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue : '';
-        //     $txRetxMun = ! empty($this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue) ?
-        //         $this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue : '';
-        //     $txRetUF = ! empty($this->entrega->getElementsByTagName("UF")->item(0)->nodeValue) ?
-        //         $this->entrega->getElementsByTagName("UF")->item(0)->nodeValue : '';
-        //     if ($this->textoAdic != '') {
-        //         $this->textoAdic .= ". \r\n";
-        //     }
-        //     // $this->textoAdic .= "LOCAL DE ENTREGA : ".$txRetCNPJ.'-'.$txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
-        //     //    ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF."\r\n";
-        // }
+        if (isset($this->entrega)) {
+            $txRetCNPJ = ! empty($this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue) ?
+                $this->entrega->getElementsByTagName("CNPJ")->item(0)->nodeValue : '';
+            $txRetxLgr = ! empty($this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue) ?
+                $this->entrega->getElementsByTagName("xLgr")->item(0)->nodeValue : '';
+            $txRetnro = ! empty($this->entrega->getElementsByTagName("nro")->item(0)->nodeValue) ?
+                $this->entrega->getElementsByTagName("nro")->item(0)->nodeValue : 's/n';
+            $txRetxCpl = $this->pSimpleGetValue($this->entrega, "xCpl", " - ");
+            $txRetxBairro = ! empty($this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue) ?
+                $this->entrega->getElementsByTagName("xBairro")->item(0)->nodeValue : '';
+            $txRetxMun = ! empty($this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue) ?
+                $this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue : '';
+            $txRetUF = ! empty($this->entrega->getElementsByTagName("UF")->item(0)->nodeValue) ?
+                $this->entrega->getElementsByTagName("UF")->item(0)->nodeValue : '';
+            $txtNome = ! empty($this->entrega->getElementsByTagName("xNome")->item(0)->nodeValue) ?
+                $this->entrega->getElementsByTagName("xNome")->item(0)->nodeValue : '';
+
+            $txRetCNPJ = $this->pFormat($txRetCNPJ, "##.###.###/####-##");
+
+            if ($this->textoAdic != '') {
+                $this->textoAdic .= ". \r\n";
+            }
+            $this->textoAdic .= "LOCAL DE ENTREGA : " . $txtNome . "\n" . $txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
+               ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF.", " . $txRetCNPJ . "\r\n";
+        }
         //informações adicionais
         $this->textoAdic .= $this->pGeraInformacoesDasNotasReferenciadas();
 
@@ -790,18 +795,18 @@ class Danfe extends Common
         //coloca os dados do destinatário
         $y = $this->pDestinatarioDANFE($x, $y+1);
 
-        if ($this->retirada){
+        // if ($this->retirada){
             
-            $y = $this->pRetiradaDANFE($x, $y+1);
+        //     $y = $this->pRetiradaDANFE($x, $y+1);
 
-        } 
+        // } 
 
-        if ($this->entrega){
+        // if ($this->entrega){
 
 
-            $y = $this->pEntregaDANFE($x, $y+1);
+        //     $y = $this->pEntregaDANFE($x, $y+1);
 
-        }
+        // }
         //coloca os dados das faturas
         $y = $this->pFaturaDANFE($x, $y+1);
         //coloca os dados dos impostos e totais da NFe
