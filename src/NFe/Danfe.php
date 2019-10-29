@@ -2035,16 +2035,22 @@ class Danfe extends Common
                 $this->transp->getElementsByTagName("modFrete")->item(0)->nodeValue : '0';
         switch ($tipoFrete) {
             case 0:
-                $texto = "(0) Emitente";
+                $texto = "(0) REMETENTE";
                 break;
             case 1:
-                $texto = "(1) Dest/Rem";
+                $texto = "(1) DESTINATÁRIO";
                 break;
             case 2:
-                $texto = "(2) Terceiros";
+                $texto = "(2) TERCEIROS";
+                break;
+            case 3:
+                $texto = "(3) Pro. REMETENTE";
+                break;
+            case 4:
+                $texto = "(4) Pro. DESTINATÁRIO";
                 break;
             case 9:
-                $texto = "(9) Sem Frete";
+                $texto = "(9) Pro. REMETENTE";
                 break;
         }
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
