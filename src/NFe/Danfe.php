@@ -2929,7 +2929,11 @@ class Danfe extends Common
         $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
         $this->pTextBox($x, $y+2, $w-2, $h-3, $this->textoAdic, $aFont, 'T', 'L', 0, '', false);
         //RESERVADO AO FISCO
-        $texto = "RESERVADO AO FISCO";
+        $texto = "RESERVADO AO FISCO\n";
+
+        if ($this->nfeProc->getElementsByTagName("xMsg")) {
+            $texto = $texto . ' ' . $this->nfeProc->getElementsByTagName("xMsg")->item(0)->nodeValue;
+        }
         $x += $w;
         $y -= 1;
         if ($this->orientacao == 'P') {
