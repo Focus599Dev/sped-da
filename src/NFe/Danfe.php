@@ -674,13 +674,13 @@ class Danfe extends Common
         //altura disponivel para os campos da DANFE
         $hcabecalho = 47;//para cabeçalho
 
-        if ( $this->retirada ){
-            $hcabecalho += 25;
-        } 
+//         if ( $this->retirada ){
+//             $hcabecalho += 25;
+//         } 
 
-        if ( $this->entrega ){
-            $hcabecalho += 25;
-        }
+//         if ( $this->entrega ){
+//             $hcabecalho += 25;
+//         }
 
         $hdestinatario = 25;//para destinatario
         $hduplicatas = 12;//para cada grupo de 7 duplicatas
@@ -2927,7 +2927,12 @@ class Danfe extends Common
         $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'');
         $this->pTextBox($x, $y+2, $w-2, $h-3, $this->textoAdic, $aFont, 'T', 'L', 0, '', false);
         //RESERVADO AO FISCO
-        $texto = "RESERVADO AO FISCO";
+        $texto = "RESERVADO AO FISCO\n";
+
+        if ($this->nfeProc->getElementsByTagName("xMsg")) {
+            $texto = $texto . ' ' . $this->nfeProc->getElementsByTagName("xMsg")->item(0)->nodeValue;
+        }
+        
         $x += $w;
         $y -= 1;
         if ($this->orientacao == 'P') {
