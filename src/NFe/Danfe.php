@@ -757,7 +757,7 @@ class Danfe extends Common
         while ($i < $this->det->length) {
             $texto = $this->pDescricaoProduto($this->det->item($i));
             $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
-            $hUsado += round(($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.3), 2);
+            $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
             if ($hUsado > $hDispo) {
                 $totPag++;
                 $hDispo = $hDispo2;
@@ -1955,7 +1955,7 @@ class Danfe extends Common
                 $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FCP", "vFCPUFDest");
             }  else if ($this->ICMSTot->getElementsByTagName('vFCPST')->item(0) && $this->ICMSTot->getElementsByTagName('vFCPST')->item(0)->nodeValue != 0.00) {
                 $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FCP", "vFCPST");
-            }
+            } 
         }
 
         if ($this->exibirPIS) {
@@ -2036,22 +2036,16 @@ class Danfe extends Common
                 $this->transp->getElementsByTagName("modFrete")->item(0)->nodeValue : '0';
         switch ($tipoFrete) {
             case 0:
-                $texto = "(0) REMETENTE";
+                $texto = "(0) Emitente";
                 break;
             case 1:
-                $texto = "(1) DESTINATÁRIO";
+                $texto = "(1) Dest/Rem";
                 break;
             case 2:
-                $texto = "(2) TERCEIROS";
-                break;
-            case 3:
-                $texto = "(3) Pro. REMETENTE";
-                break;
-            case 4:
-                $texto = "(4) Pro. DESTINATÁRIO";
+                $texto = "(2) Terceiros";
                 break;
             case 9:
-                $texto = "(9) Pro. REMETENTE";
+                $texto = "(9) Sem Frete";
                 break;
         }
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
@@ -2931,9 +2925,10 @@ class Danfe extends Common
         //RESERVADO AO FISCO
         $texto = "RESERVADO AO FISCO\n";
 
-        if ($this->nfeProc->getElementsByTagName("xMsg")) {
+        if ($this->nfeProc->getElementsByTagName("xMsg")->item(0)) {
             $texto = $texto . ' ' . $this->nfeProc->getElementsByTagName("xMsg")->item(0)->nodeValue;
         }
+
         $x += $w;
         $y -= 1;
         if ($this->orientacao == 'P') {
