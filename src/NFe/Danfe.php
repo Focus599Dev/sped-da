@@ -2930,8 +2930,12 @@ class Danfe extends Common
         //RESERVADO AO FISCO
         $texto = "RESERVADO AO FISCO\n";
 
-        if ($this->nfeProc->getElementsByTagName("xMsg")) {
-            $texto = $texto . ' ' . $this->nfeProc->getElementsByTagName("xMsg")->item(0)->nodeValue;
+        if ($this->nfeProc){
+         
+            if ($this->nfeProc->getElementsByTagName("xMsg")->item(0)) {
+                $texto = $texto . ' ' . $this->nfeProc->getElementsByTagName("xMsg")->item(0)->nodeValue;
+            }
+            
         }
         
         $x += $w;
