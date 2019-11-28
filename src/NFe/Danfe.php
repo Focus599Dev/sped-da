@@ -757,7 +757,17 @@ class Danfe extends Common
         while ($i < $this->det->length) {
             $texto = $this->pDescricaoProduto($this->det->item($i));
             $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
-            $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+            
+            if ($this->det->item($i)->getElementsByTagName('infAdProd')->item(0)){
+
+                $hUsado += round(($numlinhas * $this->pdf->FontSize) - ($numlinhas * 0.10) , 2);
+
+            } else {
+
+                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+                
+            }
+
             if ($hUsado > $hDispo) {
                 $totPag++;
                 $hDispo = $hDispo2;
@@ -2390,7 +2400,7 @@ class Danfe extends Common
      * @param  float $hmax    Altura máxima do campo de itens em mm
      * @return float Posição vertical final
      */
-    protected function pItensDANFE($x, $y, &$nInicio, $hmax, $pag = 0, &$totpag = 0, $hCabecItens = 7, $hasTagMed = false)
+       protected function pItensDANFE($x, $y, &$nInicio, $hmax, &$pag = 0, &$totpag = 0, $hCabecItens = 7, $hasTagMed = false)
     {
         $oldX = $x;
         $oldY = $y;
@@ -2615,7 +2625,6 @@ class Danfe extends Common
 
                         break;
                     }
-
                 }
 
                 $y_linha=$y+$h;
@@ -2800,13 +2809,23 @@ class Danfe extends Common
                 $i++;
                 //incrementa o controle dos itens processados.
                 $this->qtdeItensProc++;
+
+                if ($i >= ($totItens)){
+
+                    if ($totpag != $pag){
+                        $totpag = $pag;
+                    }
+
+                    break;
+                }
+
             } else {
                 $i++;
             }
         }
         return $oldY+$hmax;
     }
-
+    
     /**
      * issqnDANFE
      * Monta o campo de serviços do DANFE
