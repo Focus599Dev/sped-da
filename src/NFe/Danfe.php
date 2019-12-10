@@ -624,9 +624,9 @@ class Danfe extends Common
             //     $this->textoAdic .= $infPedido;
             // }
             // $this->textoAdic .= $this->pSimpleGetValue($this->dest, "email", ' Email do Destinatário: ');
-            // $this->textoAdic .= ! empty($this->infAdic->getElementsByTagName("infAdFisco")->item(0)->nodeValue) ?
-            //     "\r\n Inf. fisco: " .
-            //     trim($this->infAdic->getElementsByTagName("infAdFisco")->item(0)->nodeValue) : '';
+            $this->textoAdic .= ! empty($this->infAdic->getElementsByTagName("infAdFisco")->item(0)->nodeValue) ?
+                "\r\n\n Inf. fisco: " .
+                trim($this->infAdic->getElementsByTagName("infAdFisco")->item(0)->nodeValue) : '';
             // $obsCont = $this->infAdic->getElementsByTagName("obsCont");
             // if (isset($obsCont)) {
             //     foreach ($obsCont as $obs) {
@@ -859,14 +859,20 @@ class Danfe extends Common
             //coloca os itens na página adicional
             $y = $this->pItensDANFE($x, $y, $nInicial, $hDispo2, $n, $totPag, $hCabecItens, $hasTagMed);
             //coloca o rodapé da página
+            
             if ($this->orientacao == 'P') {
                 $this->pRodape($xInic, $y + 4);
             } else {
                 $this->pRodape($xInic, $this->hPrint + 4);
             }
+
             //se estiver na última página e ainda restar itens para inserir, adiciona mais uma página
             if ($n == $totPag && $this->qtdeItensProc < $qtdeItens) {
                 $totPag++;
+            }
+
+            if ($this->qtdeItensProc >= ($qtdeItens)){
+                break;
             }
         }
 
@@ -2400,7 +2406,7 @@ class Danfe extends Common
      * @param  float $hmax    Altura máxima do campo de itens em mm
      * @return float Posição vertical final
      */
-       protected function pItensDANFE($x, $y, &$nInicio, $hmax, &$pag = 0, &$totpag = 0, $hCabecItens = 7, $hasTagMed = false)
+    protected function pItensDANFE($x, $y, &$nInicio, $hmax, &$pag = 0, &$totpag = 0, $hCabecItens = 7, $hasTagMed = false)
     {
         $oldX = $x;
         $oldY = $y;
@@ -2825,7 +2831,7 @@ class Danfe extends Common
         }
         return $oldY+$hmax;
     }
-    
+
     /**
      * issqnDANFE
      * Monta o campo de serviços do DANFE
@@ -2947,9 +2953,11 @@ class Danfe extends Common
         if ($this->nfeProc){
          
             if ($this->nfeProc->getElementsByTagName("xMsg")->item(0)) {
-                $texto = $texto . ' ' . $this->nfeProc->getElementsByTagName("xMsg")->item(0)->nodeValue;
+                
+                $texto = $texto . "\n" . $this->nfeProc->getElementsByTagName("xMsg")->item(0)->nodeValue;
+                
             }
-            
+
         }
 
         $x += $w;
