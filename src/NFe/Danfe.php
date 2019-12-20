@@ -2738,7 +2738,8 @@ class Danfe extends Common
                 $this->pTextBox($x, $y, $w7, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
                 $x += $w7;
                 // Valor Unitário
-                $texto = number_format($prod->getElementsByTagName("vUnCom")->item(0)->nodeValue, 4, ",", ".");
+                $texto = number_format($this->numberFormatPrecision($prod->getElementsByTagName("vUnCom")->item(0)->nodeValue, 6, '.'), 6, ",", ".");
+                
                 $this->pTextBox($x, $y, $w8, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
                 $x += $w8;
                 // Valor do Produto
@@ -3927,5 +3928,30 @@ class Danfe extends Common
 
         return ($y + $h);
 
+    }
+    
+    /**
+     * seta precissão de casas decimais , para as funções não arredondarem
+     *
+     * @name   numberFormatPrecision
+     * @param  number $precision precisão de casas
+     * @param  number $separator ponto decimal
+     * @return number $valor
+     */
+    private function numberFormatPrecision($number, $precision = 2, $separator = '.'){
+        
+        $numberParts = explode($separator, $number);
+        
+        $response = $numberParts[0];
+        
+        if(count($numberParts)>1){
+
+            $response .= $separator;
+
+            $response .= substr($numberParts[1], 0, $precision);
+
+        }
+        
+        return $response;
     }
 }
