@@ -109,22 +109,14 @@ class Dacte extends Common
         $sDestino = 'I',
         $sDirPDF = '',
         $fonteDACTE = '',
-        $mododebug = 2,
+        $mododebug = 1,
         $preVisualizar = false
     ) {
 
         if (is_numeric($mododebug)) {
             $this->debugMode = $mododebug;
         }
-        if ($mododebug == 1) {
-            //ativar modo debug
-            error_reporting(E_ALL);
-            ini_set('display_errors', 'On');
-        } elseif ($mododebug == 0) {
-            //desativar modo debug
-            error_reporting(0);
-            ini_set('display_errors', 'Off');
-        }
+        
         $this->orientacao = $sOrientacao;
         $this->papel = $sPapel;
         $this->pdf = '';
@@ -148,6 +140,7 @@ class Dacte extends Common
         //se for passado o xml
         if (!empty($this->xml)) {
             $this->dom = new Dom();
+
             $this->dom->loadXML($this->xml);
             $this->cteProc = $this->dom->getElementsByTagName("cteProc")->item(0);
             $this->infCte = $this->dom->getElementsByTagName("infCte")->item(0);
@@ -769,7 +762,7 @@ class Dacte extends Common
                 $texto = 'Outros';
                 break;
             default:
-                $texto = 'ERRO' . $forma;
+                $texto = 'Não informado';
         }
         $aFont = $this->formatNegrito;
         $this->pTextBox($x + $wa + 4.5, $y2 + 3, $w * 0.5, $h1, $texto, $aFont, 'T', 'C', 0, '', false);
@@ -1216,12 +1209,7 @@ class Dacte extends Common
             'size' => 6,
             'style' => '');
         $this->pTextBox($x, $y, $w, 4, $texto, $aFont, 'T', 'L', 0, '');
-        $texto = "DacteNFePHP ver. " . $this->version . "  Powered by NFePHP (GNU/GPLv3 GNU/LGPLv3) © www.nfephp.org";
-        $aFont = array(
-            'font' => $this->fontePadrao,
-            'size' => 6,
-            'style' => '');
-        $this->pTextBox($x, $y, $w, 4, $texto, $aFont, 'T', 'R', 0, 'http://www.nfephp.org');
+        
     } //fim zRodape
 
     /**
@@ -1735,86 +1723,151 @@ class Dacte extends Common
             'size' => 5,
             'style' => '');
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
-        $texto = $this->pSimpleGetValue($this->infQ->item(0), "tpMed") . "\r\n";
-        $texto .= number_format(
-            $this->pSimpleGetValue(
-                $this->infQ->item(0),
-                "qCarga"
-            )
-            / $this->zMultiUniPeso(
+        
+        if ($this->infQ->item(0)){
+
+            $texto = $this->pSimpleGetValue($this->infQ->item(0), "tpMed") . "\r\n";
+            $texto .= number_format(
                 $this->pSimpleGetValue(
                     $this->infQ->item(0),
-                    "cUnid"
+                    "qCarga"
                 )
-            ),
-            3,
-            ".",
-            ""
-        );
-        $texto .= ' ' . $this->zUnidade($this->pSimpleGetValue($this->infQ->item(0), "cUnid"));
-        $aFont = array(
-            'font' => $this->fontePadrao,
-            'size' => 7,
-            'style' => 'B');
-        $this->pTextBox($x, $y + 3, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
-        $x = $w * 0.12;
-        $this->pdf->Line($x, $y, $x, $y + 9);
-        $texto = 'TP MED /UN. MED';
-        $aFont = array(
-            'font' => $this->fontePadrao,
-            'size' => 5,
-            'style' => '');
-        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
-        $texto = $this->pSimpleGetValue($this->infQ->item(1), "tpMed") . "\r\n";
-        $texto .= number_format(
-            $this->pSimpleGetValue(
-                $this->infQ->item(1),
-                "qCarga"
-            )
-            / $this->zMultiUniPeso(
-                $this->pSimpleGetValue($this->infQ->item(1), "cUnid")
-            ),
-            3,
-            ".",
-            ""
-        );
-        $texto = $this->pSimpleGetValue($this->infQ->item(1), "qCarga") == '' ? '' : $texto;
-        $texto .= ' ' . $this->zUnidade($this->pSimpleGetValue($this->infQ->item(1), "cUnid"));
-        $aFont = array(
-            'font' => $this->fontePadrao,
-            'size' => 7,
-            'style' => 'B');
-        $this->pTextBox($x, $y + 3, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
-        $x = $w * 0.24;
-        $this->pdf->Line($x, $y, $x, $y + 9);
-        $texto = 'TP MED /UN. MED';
-        $aFont = array(
-            'font' => $this->fontePadrao,
-            'size' => 5,
-            'style' => '');
-        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
-        $texto = $this->pSimpleGetValue($this->infQ->item(2), "tpMed") . "\r\n";
-        $qCarga = $this->pSimpleGetValue($this->infQ->item(2), "qCarga");
-        $texto .= !empty($qCarga) ?
-            number_format(
-                $qCarga
                 / $this->zMultiUniPeso(
-                    $this->pSimpleGetValue($this->infQ->item(2), "cUnid")
+                    $this->pSimpleGetValue(
+                        $this->infQ->item(0),
+                        "cUnid"
+                    )
                 ),
                 3,
                 ".",
                 ""
-            ) :
-            '';
-        $texto = $this->pSimpleGetValue($this->infQ->item(2), "qCarga") == '' ? '' : $texto;
-        $texto .= ' ' . $this->zUnidade($this->pSimpleGetValue($this->infQ->item(2), "cUnid"));
+            );
+            $texto .= ' ' . $this->zUnidade($this->pSimpleGetValue($this->infQ->item(0), "cUnid"));
+            $aFont = array(
+                'font' => $this->fontePadrao,
+                'size' => 7,
+                'style' => 'B');
+            $this->pTextBox($x, $y + 3, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x = $w * 0.12;
+            $this->pdf->Line($x, $y, $x, $y + 9);
+        } else {
+
+            $texto = '';  
+
+            $aFont = array(
+                'font' => $this->fontePadrao,
+                'size' => 7,
+                'style' => 'B'
+            );
+            
+            $this->pTextBox($x, $y + 3, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+            
+            $x = $w * 0.12;
+            
+            $this->pdf->Line($x, $y, $x, $y + 9);
+
+        }
+
+        $texto = 'TP MED /UN. MED';
         $aFont = array(
             'font' => $this->fontePadrao,
-            'size' => 7,
-            'style' => 'B');
-        $this->pTextBox($x, $y + 3, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
-        $x = $w * 0.36;
-        $this->pdf->Line($x, $y, $x, $y + 9);
+            'size' => 5,
+            'style' => '');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+
+        if ($this->infQ->item(1)){
+            $texto = $this->pSimpleGetValue($this->infQ->item(1), "tpMed") . "\r\n";
+            $texto .= number_format(
+                $this->pSimpleGetValue(
+                    $this->infQ->item(1),
+                    "qCarga"
+                )
+                / $this->zMultiUniPeso(
+                    $this->pSimpleGetValue($this->infQ->item(1), "cUnid")
+                ),
+                3,
+                ".",
+                ""
+            );
+            $texto = $this->pSimpleGetValue($this->infQ->item(1), "qCarga") == '' ? '' : $texto;
+            $texto .= ' ' . $this->zUnidade($this->pSimpleGetValue($this->infQ->item(1), "cUnid"));
+            $aFont = array(
+                'font' => $this->fontePadrao,
+                'size' => 7,
+                'style' => 'B');
+            $this->pTextBox($x, $y + 3, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x = $w * 0.24;
+            $this->pdf->Line($x, $y, $x, $y + 9);
+        } else {
+
+            $texto = '';  
+
+            $aFont = array(
+                'font' => $this->fontePadrao,
+                'size' => 7,
+                'style' => 'B'
+            );
+            
+            $this->pTextBox($x, $y + 3, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+            
+            $x = $w * 0.24;
+            
+            $this->pdf->Line($x, $y, $x, $y + 9);
+
+        }
+
+        $texto = 'TP MED /UN. MED';
+        $aFont = array(
+            'font' => $this->fontePadrao,
+            'size' => 5,
+            'style' => '');
+        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+        
+        if ($this->infQ->item(2)){
+        
+            $texto = $this->pSimpleGetValue($this->infQ->item(2), "tpMed") . "\r\n";
+            $qCarga = $this->pSimpleGetValue($this->infQ->item(2), "qCarga");
+            $texto .= !empty($qCarga) ?
+                number_format(
+                    $qCarga
+                    / $this->zMultiUniPeso(
+                        $this->pSimpleGetValue($this->infQ->item(2), "cUnid")
+                    ),
+                    3,
+                    ".",
+                    ""
+                ) :
+                '';
+            $texto = $this->pSimpleGetValue($this->infQ->item(2), "qCarga") == '' ? '' : $texto;
+            $texto .= ' ' . $this->zUnidade($this->pSimpleGetValue($this->infQ->item(2), "cUnid"));
+            $aFont = array(
+                'font' => $this->fontePadrao,
+                'size' => 7,
+                'style' => 'B');
+
+            $this->pTextBox($x, $y + 3, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+
+            $x = $w * 0.36;
+
+            $this->pdf->Line($x, $y, $x, $y + 9);
+        } else {
+
+            $texto = '';  
+
+            $aFont = array(
+                'font' => $this->fontePadrao,
+                'size' => 7,
+                'style' => 'B'
+            );
+            
+            $this->pTextBox($x, $y + 3, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+            
+            $x = $w * 0.36;
+            
+            $this->pdf->Line($x, $y, $x, $y + 9);
+
+        }
+
         $texto = 'CUBAGEM(M3)';
         $aFont = $this->formatPadrao;
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
