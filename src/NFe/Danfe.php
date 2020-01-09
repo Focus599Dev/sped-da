@@ -601,11 +601,16 @@ class Danfe extends Common
         //         $this->entrega->getElementsByTagName("xMun")->item(0)->nodeValue : '';
         //     $txRetUF = ! empty($this->entrega->getElementsByTagName("UF")->item(0)->nodeValue) ?
         //         $this->entrega->getElementsByTagName("UF")->item(0)->nodeValue : '';
+        //     $txtNome = ! empty($this->entrega->getElementsByTagName("xNome")->item(0)->nodeValue) ?
+        //         $this->entrega->getElementsByTagName("xNome")->item(0)->nodeValue : '';
+
+        //     $txRetCNPJ = $this->pFormat($txRetCNPJ, "##.###.###/####-##");
+
         //     if ($this->textoAdic != '') {
         //         $this->textoAdic .= ". \r\n";
         //     }
-        //     // $this->textoAdic .= "LOCAL DE ENTREGA : ".$txRetCNPJ.'-'.$txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
-        //     //    ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF."\r\n";
+        //     $this->textoAdic .= "LOCAL DE ENTREGA : " . $txtNome . "\n" . $txRetxLgr.', '.$txRetnro.' '.$txRetxCpl.
+        //        ' - '.$txRetxBairro.' '.$txRetxMun.' - '.$txRetUF.", " . $txRetCNPJ . "\r\n";
         // }
         //informações adicionais
         $this->textoAdic .= $this->pGeraInformacoesDasNotasReferenciadas();
@@ -624,9 +629,9 @@ class Danfe extends Common
             //     $this->textoAdic .= $infPedido;
             // }
             // $this->textoAdic .= $this->pSimpleGetValue($this->dest, "email", ' Email do Destinatário: ');
-            $this->textoAdic .= ! empty($this->infAdic->getElementsByTagName("infAdFisco")->item(0)->nodeValue) ?
-                "\r\n\n Inf. fisco: " .
-                trim($this->infAdic->getElementsByTagName("infAdFisco")->item(0)->nodeValue) : '';
+            // $this->textoAdic .= ! empty($this->infAdic->getElementsByTagName("infAdFisco")->item(0)->nodeValue) ?
+            //     "\r\n Inf. fisco: " .
+            //     trim($this->infAdic->getElementsByTagName("infAdFisco")->item(0)->nodeValue) : '';
             // $obsCont = $this->infAdic->getElementsByTagName("obsCont");
             // if (isset($obsCont)) {
             //     foreach ($obsCont as $obs) {
@@ -725,19 +730,29 @@ class Danfe extends Common
 
         $hasTagMed = false;
 
+        $hasTagICMSST = false;
+
         $ind = 0;
         foreach ($this->det as $d) {
 
             $thisItem = $this->det->item($ind);
             //carrega as tags do item
             $prod = $thisItem->getElementsByTagName("prod")->item(0);
+            
+            $imposto = $thisItem->getElementsByTagName("imposto")->item(0);
 
             $tagMed = $prod->getElementsByTagName("med");
             
+            $tagICMSST = $imposto->getElementsByTagName('vICMSST');
+
             $tagRastro = $prod->getElementsByTagName("rastro");
 
             if($tagMed->length > 0 || $tagRastro->length > 0){
                 $hasTagMed = true;
+            }
+
+            if($tagICMSST->length > 0 ){
+                $hasTagICMSST = true;
             }
 
             $ind++;
@@ -757,17 +772,7 @@ class Danfe extends Common
         while ($i < $this->det->length) {
             $texto = $this->pDescricaoProduto($this->det->item($i));
             $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
-            
-            if ($this->det->item($i)->getElementsByTagName('infAdProd')->item(0)){
-
-                $hUsado += round(($numlinhas * $this->pdf->FontSize) - ($numlinhas * 0.10) , 2);
-
-            } else {
-
-                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
-                
-            }
-
+            $hUsado += round(($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.3), 2);
             if ($hUsado > $hDispo) {
                 $totPag++;
                 $hDispo = $hDispo2;
@@ -820,7 +825,7 @@ class Danfe extends Common
         $y = $this->pTransporteDANFE($x, $y+1);
         //itens da DANFE
         $nInicial = 0;
-        $y = $this->pItensDANFE($x, $y+1, $nInicial, $hDispo1, $pag, $totPag, $hCabecItens, $hasTagMed);
+        $y = $this->pItensDANFE($x, $y+1, $nInicial, $hDispo1, $pag, $totPag, $hCabecItens, $hasTagMed, $hasTagICMSST);
         //coloca os dados do ISSQN
         if ($linhaISSQN == 1) {
             $y = $this->pIssqnDANFE($x, $y+4);
@@ -857,22 +862,16 @@ class Danfe extends Common
             //coloca o cabeçalho na página adicional
             $y = $this->pCabecalhoDANFE($x, $y, $n, $totPag);
             //coloca os itens na página adicional
-            $y = $this->pItensDANFE($x, $y, $nInicial, $hDispo2, $n, $totPag, $hCabecItens, $hasTagMed);
+            $y = $this->pItensDANFE($x, $y, $nInicial, $hDispo2, $n, $totPag, $hCabecItens, $hasTagMed, $hasTagICMSST);
             //coloca o rodapé da página
-            
             if ($this->orientacao == 'P') {
                 $this->pRodape($xInic, $y + 4);
             } else {
                 $this->pRodape($xInic, $this->hPrint + 4);
             }
-
             //se estiver na última página e ainda restar itens para inserir, adiciona mais uma página
             if ($n == $totPag && $this->qtdeItensProc < $qtdeItens) {
                 $totPag++;
-            }
-
-            if ($this->qtdeItensProc >= ($qtdeItens)){
-                break;
             }
         }
 
@@ -1655,8 +1654,8 @@ class Danfe extends Common
         $texto = 'DATA DA SAÍDA/ENTRADA';
         $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
-        $dSaiEnt = ! empty($this->ide->getElementsByTagName("dSaiEnt")->item(0)->nodeValue) ?
-                $this->ide->getElementsByTagName("dSaiEnt")->item(0)->nodeValue : '';
+        $dSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
+                $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
         if ($dSaiEnt == '') {
             $dSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
                     $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
@@ -2406,8 +2405,9 @@ class Danfe extends Common
      * @param  float $hmax    Altura máxima do campo de itens em mm
      * @return float Posição vertical final
      */
-    protected function pItensDANFE($x, $y, &$nInicio, $hmax, &$pag = 0, &$totpag = 0, $hCabecItens = 7, $hasTagMed = false)
+    protected function pItensDANFE($x, $y, &$nInicio, $hmax, $pag = 0, &$totpag = 0, $hCabecItens = 7, $hasTagMed = false, $hasTagICMSST = false)
     {
+
         $oldX = $x;
         $oldY = $y;
         $totItens = $this->det->length;
@@ -2443,11 +2443,17 @@ class Danfe extends Common
         //DESCRIÇÃO DO PRODUTO / SERVIÇO
         $x += $w1;
         
+        $widthDesc = 0.30;
+
         if($hasTagMed){
-            $w2 = round($w*0.25, 0);
-        }else{
-            $w2 = round($w*0.30, 0);
+            $widthDesc -= 0.05;
         }
+
+        if ($hasTagICMSST){
+            $widthDesc -= 0.10;
+        }
+
+        $w2 = round($w * $widthDesc, 0);
 
         $texto = 'DESCRIÇÃO DO PRODUTO / SERVIÇO';
         $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
@@ -2541,8 +2547,25 @@ class Danfe extends Common
         $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
         $this->pTextBox($x, $y, $w11, $h, $texto, $aFont, 'C', 'C', 0, '', false);
         $this->pdf->Line($x+$w11, $y, $x+$w11, $y+$hmax);
+
+        if ($hasTagICMSST){
+
+            $x += $w11;
+            $w12 = round($w*0.06, 0);
+            $texto = 'VALOR ICMSST';
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+            $this->pTextBox($x, $y, $w12, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+            $this->pdf->Line($x+$w11, $y, $x+$w11, $y+$hmax);
+            
+            $x += $w12;
+
+        } else {
+
+            $x += $w11;
+
+        }
+
         //VALOR IPI
-        $x += $w11;
         $w12 = round($w*0.05, 0);
         $texto = 'VALOR IPI';
         $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
@@ -2556,8 +2579,10 @@ class Danfe extends Common
         $this->pTextBox($x, $y, $w13, $h, $texto, $aFont, 'C', 'C', 0, '', false);
         $this->pdf->Line($x+$w13, $y, $x+$w13, $y+$hmax);
         //ALÍQ. IPI
+
+        // $w14 = $w-($w1+$w2+$w3+$w4+$w5+$w6+$w7+$w8+$w9+$w10+$w11+$w12+$w13);
         $x += $w13;
-        $w14 = $w-($w1+$w2+$w3+$w4+$w5+$w6+$w7+$w8+$w9+$w10+$w11+$w12+$w13);
+        $w14 = round($w*0.035, 0);
         $texto = 'ALÍQ. IPI';
         $this->pTextBox($x, $y, $w14, $h, $texto, $aFont, 'C', 'C', 0, '', false);
         $this->pdf->Line($oldX, $y+$h+1, $oldX + $w, $y+$h+1);
@@ -2631,6 +2656,7 @@ class Danfe extends Common
 
                         break;
                     }
+
                 }
 
                 $y_linha=$y+$h;
@@ -2748,7 +2774,8 @@ class Danfe extends Common
                 $this->pTextBox($x, $y, $w7, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
                 $x += $w7;
                 // Valor Unitário
-                $texto = number_format($prod->getElementsByTagName("vUnCom")->item(0)->nodeValue, 4, ",", ".");
+                $texto = number_format($this->numberFormatPrecision($prod->getElementsByTagName("vUnCom")->item(0)->nodeValue, 6, '.'), 6, ",", ".");
+                
                 $this->pTextBox($x, $y, $w8, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
                 $x += $w8;
                 // Valor do Produto
@@ -2781,8 +2808,28 @@ class Danfe extends Common
                             ) : '0, 00';
                     $this->pTextBox($x, $y, $w11, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
                 }
-                //Valor do IPI
+
+
+                if ($hasTagICMSST){
+                    
+                    $x += $w11;
+
+                    $texto = ! empty($ICMS->getElementsByTagName("vICMSST")->item(0)->nodeValue) ?
+                            number_format(
+                                $ICMS->getElementsByTagName("vICMSST")->item(0)->nodeValue,
+                                2,
+                                ",",
+                                "."
+                            ) : '0, 00';
+
+                    $this->pTextBox($x, $y, $w12, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
+
+
+                } 
+
                 $x += $w11;
+
+                //Valor do IPI
                 if (isset($IPI)) {
                     $texto = ! empty($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue) ?
                             number_format($IPI->getElementsByTagName("vIPI")->item(0)->nodeValue, 2, ",", ".") :'';
@@ -2815,16 +2862,6 @@ class Danfe extends Common
                 $i++;
                 //incrementa o controle dos itens processados.
                 $this->qtdeItensProc++;
-
-                if ($i >= ($totItens)){
-
-                    if ($totpag != $pag){
-                        $totpag = $pag;
-                    }
-
-                    break;
-                }
-
             } else {
                 $i++;
             }
@@ -2953,13 +2990,11 @@ class Danfe extends Common
         if ($this->nfeProc){
          
             if ($this->nfeProc->getElementsByTagName("xMsg")->item(0)) {
-                
-                $texto = $texto . "\n" . $this->nfeProc->getElementsByTagName("xMsg")->item(0)->nodeValue;
-                
+                $texto = $texto . ' ' . $this->nfeProc->getElementsByTagName("xMsg")->item(0)->nodeValue;
             }
-
+            
         }
-
+        
         $x += $w;
         $y -= 1;
         if ($this->orientacao == 'P') {
@@ -3949,5 +3984,30 @@ class Danfe extends Common
 
         return ($y + $h);
 
+    }
+    
+    /**
+     * seta precissão de casas decimais , para as funções não arredondarem
+     *
+     * @name   numberFormatPrecision
+     * @param  number $precision precisão de casas
+     * @param  number $separator ponto decimal
+     * @return number $valor
+     */
+    private function numberFormatPrecision($number, $precision = 2, $separator = '.'){
+        
+        $numberParts = explode($separator, $number);
+        
+        $response = $numberParts[0];
+        
+        if(count($numberParts)>1){
+
+            $response .= $separator;
+
+            $response .= substr($numberParts[1], 0, $precision);
+
+        }
+        
+        return $response;
     }
 }
