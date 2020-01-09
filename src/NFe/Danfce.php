@@ -7,7 +7,7 @@ use NFePHP\DA\Legacy\Dom;
 use NFePHP\DA\Legacy\Pdf;
 use NFePHP\DA\Legacy\Common;
 
-class Danfe extends Common
+class Dafce extends Common
 {
 
     const FPDF_FONTPATH = 'font/';
