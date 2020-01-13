@@ -2648,7 +2648,7 @@ class Danfe extends Common
 
                 } else {
 
-                    if ($hUsado >= ($hmax - $h)){
+                    if ($hUsado >= ($hmax - ($hmax * 0.10))){
                         
                         $totpag = $totpag + 1;
 
