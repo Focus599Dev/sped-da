@@ -2548,22 +2548,22 @@ class Danfe extends Common
         $this->pTextBox($x, $y, $w11, $h, $texto, $aFont, 'C', 'C', 0, '', false);
         $this->pdf->Line($x+$w11, $y, $x+$w11, $y+$hmax);
 
-//         if ($hasTagICMSST){
+        if ($hasTagICMSST){
 
-//             $x += $w11;
-//             $w12 = round($w*0.06, 0);
-//             $texto = 'VALOR ICMSST';
-//             $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
-//             $this->pTextBox($x, $y, $w12, $h, $texto, $aFont, 'C', 'C', 0, '', false);
-//             $this->pdf->Line($x+$w11, $y, $x+$w11, $y+$hmax);
+            $x += $w11;
+            $w12 = round($w*0.06, 0);
+            $texto = 'VALOR ICMSST';
+            $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
+            $this->pTextBox($x, $y, $w12, $h, $texto, $aFont, 'C', 'C', 0, '', false);
+            $this->pdf->Line($x+$w11, $y, $x+$w11, $y+$hmax);
             
-//             $x += $w12;
+            $x += $w12;
 
-//         } else {
+        } else {
 
-//             $x += $w11;
+            $x += $w11;
 
-//         }
+        }
 
         //VALOR IPI
         $w12 = round($w*0.05, 0);
@@ -2810,22 +2810,22 @@ class Danfe extends Common
                 }
 
 
-//                 if ($hasTagICMSST){
+                if ($hasTagICMSST){
                     
-//                     $x += $w11;
+                    $x += $w11;
 
-//                     $texto = ! empty($ICMS->getElementsByTagName("vICMSST")->item(0)->nodeValue) ?
-//                             number_format(
-//                                 $ICMS->getElementsByTagName("vICMSST")->item(0)->nodeValue,
-//                                 2,
-//                                 ",",
-//                                 "."
-//                             ) : '0, 00';
+                    $texto = ! empty($ICMS->getElementsByTagName("vICMSST")->item(0)->nodeValue) ?
+                            number_format(
+                                $ICMS->getElementsByTagName("vICMSST")->item(0)->nodeValue,
+                                2,
+                                ",",
+                                "."
+                            ) : '0, 00';
 
-//                     $this->pTextBox($x, $y, $w12, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
+                    $this->pTextBox($x, $y, $w12, $h, $texto, $aFont, 'T', $alinhamento, 0, '');
 
 
-//                 } 
+                } 
 
                 $x += $w11;
 
