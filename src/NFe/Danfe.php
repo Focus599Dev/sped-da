@@ -756,16 +756,29 @@ class Danfe extends Common
         $totPag = 1;
         while ($i < $this->det->length) {
             $texto = $this->pDescricaoProduto($this->det->item($i));
-            $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
-            
-            if ($this->det->item($i)->getElementsByTagName('infAdProd')->item(0)){
+            $textoExplode = explode(chr(10), $texto);
 
-                $hUsado += round(($numlinhas * $this->pdf->FontSize) - ($numlinhas * 0.10) , 2);
+            if (count($textoExplode) > 1){
+
+                $textoProduto = $textoExplode[0];
+
+                unset($textoExplode[0]); 
+
+                $numlinhas = $this->pGetNumLines($textoProduto, $w2, $fontProduto);
+                
+                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+
+                $textoExplode = implode("\n", $textoExplode);
+
+                $numlinhas = $this->pGetNumLines($textoExplode, $w2, $aFontFCI);
+
+                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
 
             } else {
 
-                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+                $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
                 
+                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2); 
             }
 
             if ($hUsado > $hDispo) {
