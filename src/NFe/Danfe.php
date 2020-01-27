@@ -754,6 +754,9 @@ class Danfe extends Common
         }
 
         $totPag = 1;
+        
+        $aFontFCI = array('font'=>$this->fontePadrao, 'size'=>5.7, 'style'=>'');
+        
         while ($i < $this->det->length) {
             $texto = $this->pDescricaoProduto($this->det->item($i));
             $textoExplode = explode(chr(10), $texto);
