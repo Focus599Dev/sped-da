@@ -768,11 +768,37 @@ class Danfe extends Common
 
         }
 
-        $totPag = 1;
+        $aFontFCI = array('font'=>$this->fontePadrao, 'size'=>5.7, 'style'=>'');
+
         while ($i < $this->det->length) {
+            
             $texto = $this->pDescricaoProduto($this->det->item($i));
-            $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
-            $hUsado += round(($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.3), 2);
+
+            $textoExplode = explode(chr(10), $texto);
+
+            if (count($textoExplode) > 1){
+
+                $textoProduto = $textoExplode[0];
+
+                unset($textoExplode[0]); 
+
+                $numlinhas = $this->pGetNumLines($textoProduto, $w2, $fontProduto);
+                
+                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+
+                $textoExplode = implode("\n", $textoExplode);
+
+                $numlinhas = $this->pGetNumLines($textoExplode, $w2, $aFontFCI);
+
+                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+
+            } else {
+
+                $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
+                
+                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2); 
+            }
+
             if ($hUsado > $hDispo) {
                 $totPag++;
                 $hDispo = $hDispo2;
