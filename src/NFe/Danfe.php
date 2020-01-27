@@ -674,13 +674,13 @@ class Danfe extends Common
         //altura disponivel para os campos da DANFE
         $hcabecalho = 47;//para cabeçalho
 
-        if ( $this->retirada ){
-            $hcabecalho += 25;
-        } 
+//         if ( $this->retirada ){
+//             $hcabecalho += 25;
+//         } 
 
-        if ( $this->entrega ){
-            $hcabecalho += 25;
-        }
+//         if ( $this->entrega ){
+//             $hcabecalho += 25;
+//         }
 
         $hdestinatario = 25;//para destinatario
         $hduplicatas = 12;//para cada grupo de 7 duplicatas
