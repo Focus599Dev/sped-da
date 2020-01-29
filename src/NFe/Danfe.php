@@ -1996,7 +1996,9 @@ class Danfe extends Common
                 $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FCP", "vFCPUFDest");
             }  else if ($this->ICMSTot->getElementsByTagName('vFCPST')->item(0) && $this->ICMSTot->getElementsByTagName('vFCPST')->item(0)->nodeValue != 0.00) {
                 $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FCP", "vFCPST");
-            } 
+            } else {
+                $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO FCP", "vFCP");
+            }
         }
 
         if ($this->exibirPIS) {
