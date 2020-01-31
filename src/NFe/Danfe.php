@@ -1680,8 +1680,8 @@ class Danfe extends Common
         $texto = 'DATA DA SAÍDA/ENTRADA';
         $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
-        $dSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
-                $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
+        $dSaiEnt = ! empty($this->ide->getElementsByTagName("dhESaiEnt")->item(0)->nodeValue) ?
+                $this->ide->getElementsByTagName("dhESaiEnt")->item(0)->nodeValue : '';
         if ($dSaiEnt == '') {
             $dSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
                     $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
