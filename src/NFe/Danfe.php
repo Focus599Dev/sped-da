@@ -945,10 +945,11 @@ class Danfe extends Common
     {
         if ($cdata == '') {
             return '';
-        }
+        }        
         //remove qualquer texto antes ou depois da tag CDATA
-        $cdata = str_replace('<![CDATA[', '<CDATA>', $cdata);
-        $cdata = str_replace(']]>', '</CDATA>', $cdata);
+        $cdata = str_replace('<![CDATA[', '<CDATA>', $cdata); 
+
+        $cdata = str_replace(']]>', '</CDATA>', $cdata);        
         $cdata = preg_replace('/\s\s+/', ' ', $cdata);
         $cdata = str_replace("> <", "><", $cdata);
         $len = strlen($cdata);
@@ -956,7 +957,9 @@ class Danfe extends Common
         if ($startPos === false) {
             return $cdata;
         }
-        
+
+        $cdata = htmlentities($cdata);
+
         $endPos = 0;
 
         for ($x=$len; $x>0; $x--) {
@@ -982,8 +985,9 @@ class Danfe extends Common
         } else {
             $cdata = $parte2;
         }
-        //carrega o xml CDATA em um objeto DOM
+        // carrega o xml CDATA em um objeto DOM
         $dom = new Dom();
+
         $dom->loadXML($cdata, LIBXML_NOBLANKS | LIBXML_NOEMPTYTAG);
         //$xml = $dom->saveXML();
         //grupo CDATA infADprod
@@ -1079,6 +1083,9 @@ class Danfe extends Common
                 }
             }
         }
+
+        $texto = html_entity_decode($texto);
+
         return $texto;
     }
     
