@@ -437,7 +437,7 @@ class Dacte extends Common
                     $y += 17.9;
                     $x = $xInic;
                     // TODO fmertins 31/10/14: este método não existe...
-                    $r = $this->zModalAereo($x, $y);
+//                     $r = $this->zModalAereo($x, $y);
                     break;
                 case '3':
                     $y += 17.9;
@@ -453,7 +453,7 @@ class Dacte extends Common
                     $y += 17.9;
                     $x = $xInic;
                     // TODO fmertins 31/10/14: este método não existe...
-                    $r = $this->zModalDutoviario($x, $y);
+//                     $r = $this->zModalDutoviario($x, $y);
                     break;
             }
             if ($this->modal == '1') {
