@@ -682,7 +682,7 @@ class Danfe extends Common
         $himposto = 18;// para imposto
         $htransporte = 25;// para transporte
         $hissqn = 11;// para issqn
-        $hfooter = $hdadosadic;// para rodape
+        $hfooter = 15;// para rodape
         $hCabecItens = 4;//cabeçalho dos itens
 
        
@@ -703,7 +703,7 @@ class Danfe extends Common
 
             $hDispo1 = $this->hPrint + 5 - ($hcabecalho +
                 $hdestinatario + ($linhasDup * $hduplicatas) + $himposto + $htransporte +
-                ($linhaISSQN * $hissqn) + $hdadosadic + $hfooter + $hCabecItens +
+                ($linhaISSQN * $hissqn) + $hdadosadic + $hfooter+ $hCabecItens +
                 $this->pSizeExtraTextoFatura());
         }
 
@@ -757,7 +757,7 @@ class Danfe extends Common
         while ($i < $this->det->length) {
             $texto = $this->pDescricaoProduto($this->det->item($i));
             $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
-            $hUsado += round(($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.3), 2);
+            $hUsado += round(($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.4), 2);
             if ($hUsado > $hDispo) {
                 $totPag++;
                 $hDispo = $hDispo2;
@@ -1192,7 +1192,7 @@ class Danfe extends Common
             $CEP = $this->pFormat($CEP, "#####-###");
             $mun = $this->pSimpleGetValue($this->enderEmit, "xMun");
             $UF = $this->pSimpleGetValue($this->enderEmit, "UF");
-            $fone = $this->pFormat($fone, "## ####-####");
+			$fone = $this->pFormat($fone, "## ####-####");
             $texto = $lgr . ", " . $nro . $cpl . " - " . $bairro . "\n"
                     . $CEP . " - " . $mun . " | " . $UF . "\n"
                     . "Fone: " . $fone . ' | ' . 'email: sac@marcolin.com';
@@ -2367,12 +2367,13 @@ class Danfe extends Common
         $texto = $prod->getElementsByTagName("xProd")->item(0)->nodeValue . (strlen($tmp_ad)!=0?"\n    ".$tmp_ad:'');
 
         if ( trim($infAdProd) ){
-            $texto .= "\n" . $infAdProd;
+            // $texto .= "\n" . $infAdProd;
         }
 
         if ($this->descProdQuebraLinha) {
             $texto = str_replace(";", "\n", $texto);
         }
+        
         return $texto;
     }
 
@@ -2388,7 +2389,7 @@ class Danfe extends Common
      * @param  float $hmax    Altura máxima do campo de itens em mm
      * @return float Posição vertical final
      */
-    protected function pItensDANFE($x, $y, &$nInicio, $hmax, $pag = 0, $totpag = 0, $hCabecItens = 7, $hasTagMed = false)
+    protected function pItensDANFE($x, $y, &$nInicio, $hmax, $pag = 0, &$totpag = 0, $hCabecItens = 7, $hasTagMed = false)
     {
         $oldX = $x;
         $oldY = $y;
@@ -2593,12 +2594,27 @@ class Danfe extends Common
                 }
 
                 $hUsado += $h;
-                
-                if ($hUsado >= ($hmax - $h)  && $i < $totItens) {
-                    $nInicio = $i;
-                    break;
+                if ($pag != $totpag) {
+
+                    if ($hUsado >= ($hmax - $h)  && $i < $totItens) {
+                        //ultrapassa a capacidade para uma única página
+                        //o restante dos dados serão usados nas proximas paginas
+                        $nInicio = $i;
+                        break;
+                    } 
+
+                } else {
+
+                    if ($hUsado >= ($hmax - $h)){
+                        
+                        $totpag = $totpag + 1;
+
+                        $nInicio = $i;
+
+                        break;
+                    }
+
                 }
-                
 
                 $y_linha=$y+$h;
                 // linha entre itens
