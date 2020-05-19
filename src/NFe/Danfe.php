@@ -2597,6 +2597,7 @@ class Danfe extends Common
                 
                 $textoExplode = explode(chr(10), $textoProduto);
 
+                
                 if (count($textoExplode) > 1){
 
                     $textoProduto = $textoExplode[0];
@@ -2605,7 +2606,7 @@ class Danfe extends Common
 
                     $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
 
-                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);   
+                    $h = round($linhaDescr * $this->pdf->FontSize , 2);   
 
                     $textoExplode = implode("\n", $textoExplode);
 
@@ -2613,7 +2614,7 @@ class Danfe extends Common
 
                     $h2 = $h;
 
-                    $h = $h + round(($linhaDescr * $this->pdf->FontSize) + ($linhaDescr * 0.5), 2);
+                    $h = $h + round( ($linhaDescr * $this->pdf->FontSize), 2);
 
                 } else {
 
@@ -2621,7 +2622,7 @@ class Danfe extends Common
 
                     $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
 
-                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);
+                    $h = round(($linhaDescr * $this->pdf->FontSize), 2);
 
                     $h2 = $h;   
                 }
