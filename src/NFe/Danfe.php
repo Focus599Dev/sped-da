@@ -756,8 +756,31 @@ class Danfe extends Common
         $totPag = 1;
         while ($i < $this->det->length) {
             $texto = $this->pDescricaoProduto($this->det->item($i));
-            $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
-            $hUsado += round(($numlinhas * $this->pdf->FontSize) + ($numlinhas * 0.4), 2);
+            $textoExplode = explode(chr(10), $texto);
+
+            if (count($textoExplode) > 1){
+
+                $textoProduto = $textoExplode[0];
+
+                unset($textoExplode[0]); 
+
+                $numlinhas = $this->pGetNumLines($textoProduto, $w2, $fontProduto);
+                
+                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+
+                $textoExplode = implode("\n", $textoExplode);
+
+                $numlinhas = $this->pGetNumLines($textoExplode, $w2, $aFontFCI);
+
+                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+
+            } else {
+
+                $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
+                
+                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2); 
+            }
+
             if ($hUsado > $hDispo) {
                 $totPag++;
                 $hDispo = $hDispo2;
@@ -768,6 +791,7 @@ class Danfe extends Common
             }
             $i++;
         } //fim da soma das areas de itens usadas
+        
         $qtdeItens = $i; //controle da quantidade de itens no DANFE
         //montagem da primeira página
         $pag = 1;
@@ -2572,7 +2596,7 @@ class Danfe extends Common
 
                     $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
 
-                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);   
+                    $h = round($linhaDescr * $this->pdf->FontSize , 2);   
 
                     $textoExplode = implode("\n", $textoExplode);
 
@@ -2580,7 +2604,7 @@ class Danfe extends Common
 
                     $h2 = $h;
 
-                    $h = $h + round(($linhaDescr * $this->pdf->FontSize) + ($linhaDescr * 0.5), 2);
+                    $h = $h + round( ($linhaDescr * $this->pdf->FontSize), 2);
 
                 } else {
 
@@ -2588,7 +2612,7 @@ class Danfe extends Common
 
                     $linhaDescr = $this->pGetNumLines($textoProduto, $w2, $aFont);
 
-                    $h = round(($linhaDescr * $this->pdf->FontSize)+ ($linhaDescr * 0.5), 2);
+                    $h = round(($linhaDescr * $this->pdf->FontSize), 2);
 
                     $h2 = $h;   
                 }
