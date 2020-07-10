@@ -2424,7 +2424,7 @@ class Danfe extends Common
         $texto = $prod->getElementsByTagName("xProd")->item(0)->nodeValue . (strlen($tmp_ad)!=0?"\n    ".$tmp_ad:'');
 
         if ( trim($infAdProd) ){
-            // $texto .= "\n" . $infAdProd;
+            $texto .= "\n" . $infAdProd;
         }
 
         if ($this->descProdQuebraLinha && $this->customDanfe['InfAdicItem'] == 1) {
