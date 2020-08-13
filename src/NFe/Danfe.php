@@ -2417,18 +2417,23 @@ class Danfe extends Common
                 $medTxt.= ' ';
             }
         }
-        //NT2013.006 FCI
-        $nFCI = (! empty($itemProd->getElementsByTagName('nFCI')->item(0)->nodeValue)) ?
-                ' FCI:'.$itemProd->getElementsByTagName('nFCI')->item(0)->nodeValue : '';
-        $tmp_ad = ($this->descProdInfoComplemento ? $medTxt . $impostos . $nFCI : '');
-        $texto = $prod->getElementsByTagName("xProd")->item(0)->nodeValue . (strlen($tmp_ad)!=0?"\n    ".$tmp_ad:'');
+        
+        $texto = $prod->getElementsByTagName("xProd")->item(0)->nodeValue;
+        
+        if ($this->customDanfe['InfAdicItem'] == 1) {
+            //NT2013.006 FCI
+            $nFCI = (! empty($itemProd->getElementsByTagName('nFCI')->item(0)->nodeValue)) ?
+                    ' FCI:'.$itemProd->getElementsByTagName('nFCI')->item(0)->nodeValue : '';
+            $tmp_ad = ($this->descProdInfoComplemento ? $medTxt . $impostos . $nFCI : '');
+            $texto = $prod->getElementsByTagName("xProd")->item(0)->nodeValue . (strlen($tmp_ad)!=0?"\n    ".$tmp_ad:'');
 
-        if ( trim($infAdProd) ){
-            $texto .= "\n" . $infAdProd;
-        }
+            if ( trim($infAdProd) ){
+                $texto .= "\n" . $infAdProd;
+            }
 
-        if ($this->descProdQuebraLinha && $this->customDanfe['InfAdicItem'] == 1) {
-            $texto = str_replace(";", "\n", $texto);
+            if ($this->descProdQuebraLinha && $this->customDanfe['InfAdicItem'] == 1) {
+                $texto = str_replace(";", "\n", $texto);
+            }
         }
         
         return $texto;
