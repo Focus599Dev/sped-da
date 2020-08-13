@@ -1692,7 +1692,7 @@ class Danfe extends Common
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
         $dSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
                 $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
-        if ($dSaiEnt == '') {
+        if ($dSaiEnt != '') {
             $dSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
                     $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
             $aDsaient = explode('T', $dSaiEnt);
