@@ -2431,9 +2431,10 @@ class Danfe extends Common
                 $texto .= "\n" . $infAdProd;
             }
 
-            if ($this->descProdQuebraLinha && $this->customDanfe['InfAdicItem'] == 1) {
-                $texto = str_replace(";", "\n", $texto);
-            }
+        }
+        
+        if ($this->descProdQuebraLinha) {
+            $texto = str_replace(";", "\n", $texto);
         }
         
         return $texto;
