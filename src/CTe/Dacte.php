@@ -71,6 +71,8 @@ class Dacte extends Common
     protected $infNFe;
     protected $compl;
     protected $ICMS;
+    protected $ICMSSN;
+    protected $ICMSOutraUF;
     protected $imp;
     protected $toma4;
     protected $toma03;
@@ -174,6 +176,7 @@ class Dacte extends Common
             $this->compl = $this->dom->getElementsByTagName("compl");
             $this->ICMS = $this->dom->getElementsByTagName("ICMS")->item(0);
             $this->ICMSSN = $this->dom->getElementsByTagName("ICMSSN")->item(0);
+            $this->ICMSOutraUF = $this->dom->getElementsByTagName("ICMSOutraUF")->item(0);
             $this->imp = $this->dom->getElementsByTagName("imp")->item(0);
 
             $vTrib = $this->pSimpleGetValue($this->imp, "vTotTrib");
@@ -2062,45 +2065,43 @@ class Dacte extends Common
         $texto = 'INFORMAÇÕES RELATIVAS AO IMPOSTO';
         $aFont = $this->formatPadrao;
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'C', 1, '');
-
         $y += 3.4;
-        $this->pdf->Line($x, $y, $w + 1, $y);
+         $this->pdf->Line($x, $y, $w + 1, $y);
         $texto = 'SITUAÇÃO TRIBUTÁRIA';
         $aFont = $this->formatPadrao;
         $this->pTextBox($x, $y, $w * 0.26, $h, $texto, $aFont, 'T', 'L', 0, '');
-
         $x += $w * 0.26;
-        $this->pdf->Line($x, $y, $x, $y + 9.5);
+         $this->pdf->Line($x, $y, $x, $y + 9.5);
         $texto = 'BASE DE CALCULO';
         $aFont = $this->formatPadrao;
         $this->pTextBox($x, $y, $w * 0.14, $h, $texto, $aFont, 'T', 'L', 0, '');
-
-        $wCol02=0.18;
+        $wCol02 = 0.15;
         $x += $w * $wCol02;
-        $this->pdf->Line($x, $y, $x, $y + 9.5);
+         $this->pdf->Line($x, $y, $x, $y + 9.5);
         $texto = 'ALÍQ ICMS';
         $aFont = $this->formatPadrao;
         $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
-
         $x += $w * $wCol02;
-        $this->pdf->Line($x, $y, $x, $y + 9.5);
+         $this->pdf->Line($x, $y, $x, $y + 9.5);
         $texto = 'VALOR ICMS';
         $aFont = $this->formatPadrao;
         $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
-
         $x += $w * $wCol02;
-        $this->pdf->Line($x, $y, $x, $y + 9.5);
+         $this->pdf->Line($x, $y, $x, $y + 9.5);
         $texto = '% RED. BC ICMS';
         $aFont = $this->formatPadrao;
         $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
-
+        $x += $w * $wCol02;
+         $this->pdf->Line($x, $y, $x, $y + 9.5);
+        $texto = 'VALOR ICMS ST';
+        $aFont = $this->formatPadrao;
+        $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
         /*$x += $w * 0.14;
-        $this->pdf->Line($x, $y, $x, $y + 9.5);
+         $this->pdf->Line($x, $y, $x, $y + 9.5);
         $texto = 'ICMS ST';
         $aFont = $this->formatPadrao;
         $this->pTextBox($x, $y, $w * 0.14, $h, $texto, $aFont, 'T', 'L', 0, '');
          * */
-
         $x = $oldX;
         $y = $y + 4;
         $texto = $this->pSimpleGetValue($this->ICMS, "CST");
@@ -2124,38 +2125,95 @@ class Dacte extends Common
                 $texto = "60 - ICMS cobrado anteriormente por substituição tributária";
                 break;
             case '90':
-                $texto = "90 - ICMS outros";
+                if ($this->ICMSOutraUF) {
+                    $texto = "90 - ICMS Outra UF";
+                } else {
+                    $texto = "90 - ICMS Outros";
+                }
                 break;
         }
-        $texto .= $this->pSimpleGetValue($this->ICMSSN, "indSN");
-        $texto = $texto == 1 ? 'Simples Nacional' : $texto;
-        $aFont = $this->formatNegrito;
-        $this->pTextBox($x, $y, $w * 0.26, $h, $texto, $aFont, 'T', 'L', 0, '');
-        $x += $w * 0.26;
-
-        $texto = !empty($this->ICMS->getElementsByTagName("vBC")->item(0)->nodeValue) ?
-            number_format($this->pSimpleGetValue($this->ICMS, "vBC"), 2, ",", ".") : '';
-        $aFont = $this->formatNegrito;
-        $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
-        $x += $w * $wCol02;
-
-        $texto = !empty($this->ICMS->getElementsByTagName("pICMS")->item(0)->nodeValue) ?
-            number_format($this->pSimpleGetValue($this->ICMS, "pICMS"), 2, ",", ".") : '';
-        $aFont = $this->formatNegrito;
-        $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
-        $x += $w * $wCol02;
-
-        $texto = !empty($this->ICMS->getElementsByTagName("vICMS")->item(0)->nodeValue) ?
-            number_format($this->pSimpleGetValue($this->ICMS, "vICMS"), 2, ",", ".") : '';
-        $aFont = $this->formatNegrito;
-        $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
-        $x += $w * $wCol02;
-
-        $texto = !empty($this->ICMS->getElementsByTagName("pRedBC")->item(0)->nodeValue) ?
-            number_format($this->pSimpleGetValue($this->ICMS, "pRedBC"), 2, ",", ".").'%' :'';
-        $aFont = $this->formatNegrito;
-        $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
-
+        if ($this->pSimpleGetValue($this->ICMS, "CST") == '60') {
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * 0.26, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x += $w * 0.26;
+            $texto = !empty($this->ICMS->getElementsByTagName("vBCSTRet")->item(0)->nodeValue) ?
+                number_format($this->pSimpleGetValue($this->ICMS, "vBCSTRet"), 2, ",", ".") : (
+                !empty($this->ICMS->getElementsByTagName("vBCOutraUF")->item(0)->nodeValue) ?
+                    number_format($this->pSimpleGetValue($this->ICMS, "vBCOutraUF"), 2, ",", ".") : ''
+                );
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x += $w * $wCol02;
+            $texto = !empty($this->ICMS->getElementsByTagName("pICMSSTRet")->item(0)->nodeValue) ?
+                number_format($this->pSimpleGetValue($this->ICMS, "pICMSSTRet"), 2, ",", ".") : (
+                !empty($this->ICMS->getElementsByTagName("pICMSOutraUF")->item(0)->nodeValue) ?
+                    number_format($this->pSimpleGetValue($this->ICMS, "pICMSOutraUF"), 2, ",", ".") : ''
+                );
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x += $w * $wCol02;
+            $texto = !empty($this->ICMS->getElementsByTagName("vICMS")->item(0)->nodeValue) ?
+                number_format($this->pSimpleGetValue($this->ICMS, "vICMS"), 2, ",", ".") : (
+                !empty($this->ICMS->getElementsByTagName("vICMSOutraUF")->item(0)->nodeValue) ?
+                    number_format($this->pSimpleGetValue($this->ICMS, "vICMSOutraUF"), 2, ",", ".") : ''
+                );
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x += $w * $wCol02;
+            $texto = !empty($this->ICMS->getElementsByTagName("pRedBC")->item(0)->nodeValue) ?
+                number_format($this->pSimpleGetValue($this->ICMS, "pRedBC"), 2, ",", ".") : (
+                !empty($this->ICMS->getElementsByTagName("pRedBCOutraUF")->item(0)->nodeValue) ?
+                    number_format($this->pSimpleGetValue($this->ICMS, "pRedBCOutraUF"), 2, ",", ".") : ''
+                );
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x += $w * $wCol02;
+            $texto = !empty($this->ICMS->getElementsByTagName("vICMSSTRet")->item(0)->nodeValue) ?
+                number_format($this->pSimpleGetValue($this->ICMS, "vICMSSTRet"), 2, ",", ".") : '';
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
+        } else {
+            $texto = $this->pSimpleGetValue($this->ICMSSN, "indSN") == 1 ? 'Simples Nacional' : $texto;
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * 0.26, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x += $w * 0.26;
+            $texto = !empty($this->ICMS->getElementsByTagName("vBC")->item(0)->nodeValue) ?
+                number_format($this->pSimpleGetValue($this->ICMS, "vBC"), 2, ",", ".") : (
+                !empty($this->ICMS->getElementsByTagName("vBCOutraUF")->item(0)->nodeValue) ?
+                    number_format($this->pSimpleGetValue($this->ICMS, "vBCOutraUF"), 2, ",", ".") : ''
+                );
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x += $w * $wCol02;
+            $texto = !empty($this->ICMS->getElementsByTagName("pICMS")->item(0)->nodeValue) ?
+                number_format($this->pSimpleGetValue($this->ICMS, "pICMS"), 2, ",", ".") : (
+                !empty($this->ICMS->getElementsByTagName("pICMSOutraUF")->item(0)->nodeValue) ?
+                    number_format($this->pSimpleGetValue($this->ICMS, "pICMSOutraUF"), 2, ",", ".") : ''
+                );
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x += $w * $wCol02;
+            $texto = !empty($this->ICMS->getElementsByTagName("vICMS")->item(0)->nodeValue) ?
+                number_format($this->pSimpleGetValue($this->ICMS, "vICMS"), 2, ",", ".") : (
+                !empty($this->ICMS->getElementsByTagName("vICMSOutraUF")->item(0)->nodeValue) ?
+                    number_format($this->pSimpleGetValue($this->ICMS, "vICMSOutraUF"), 2, ",", ".") : ''
+                );
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x += $w * $wCol02;
+            $texto = !empty($this->ICMS->getElementsByTagName("pRedBC")->item(0)->nodeValue) ?
+                number_format($this->pSimpleGetValue($this->ICMS, "pRedBC"), 2, ",", ".") : (
+                !empty($this->ICMS->getElementsByTagName("pRedBCOutraUF")->item(0)->nodeValue) ?
+                    number_format($this->pSimpleGetValue($this->ICMS, "pRedBCOutraUF"), 2, ",", ".") : ''
+                );
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $x += $w * $wCol02;
+            $texto = !empty($this->ICMS->getElementsByTagName("vICMSSTRet")->item(0)->nodeValue) ?
+                number_format($this->pSimpleGetValue($this->ICMS, "vICMSSTRet"), 2, ",", ".") : '';
+            $aFont = $this->formatNegrito;
+            $this->pTextBox($x, $y, $w * $wCol02, $h, $texto, $aFont, 'T', 'L', 0, '');
+        }
         /*$x += $w * 0.14;
         $texto = '';
         $aFont = $this->formatNegrito;
