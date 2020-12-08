@@ -3486,7 +3486,7 @@ class Danfe extends Common
 
         $h = 7;
 
-        $texto = "INFORMAÇÕES DO LOCAL DE ENTREGA";
+        $texto = "INFORMAÇÕES DO LOCAL DE RETIRADA";
 
         $aFont = array('font'=>$this->fontePadrao, 'size'=>7, 'style'=>'B');
         
