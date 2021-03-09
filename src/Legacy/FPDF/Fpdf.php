@@ -1046,12 +1046,21 @@ function Output($dest='', $name='', $isUTF8=false)
 
 protected function _dochecks()
 {
-	// Check mbstring overloading
-	if(ini_get('mbstring.func_overload') & 2)
-		$this->Error('mbstring overloading must be disabled');
-	// Ensure runtime magic quotes are disabled
-	if(get_magic_quotes_runtime())
-		@set_magic_quotes_runtime(0);
+	// // Check mbstring overloading
+	// if(ini_get('mbstring.func_overload') & 2)
+	// 	$this->Error('mbstring overloading must be disabled');
+	// // Ensure runtime magic quotes are disabled
+	// if(get_magic_quotes_runtime())
+	// 	@set_magic_quotes_runtime(0);
+
+	//Check availability of %F
+	if (sprintf('%.1F', 1.0)!='1.0') {
+		$this->error('This version of PHP is not supported');
+	}
+	//Check mbstring overloading
+	if (ini_get('mbstring.func_overload') & 2) {
+		$this->error('mbstring overloading must be disabled');
+	}
 }
 
 protected function _checkoutput()
@@ -1903,6 +1912,13 @@ protected function _enddoc()
 	$this->_put($offset);
 	$this->_put('%%EOF');
 	$this->state = 3;
+}
+public function getPdf()
+{
+	if ($this->state < 3) {
+		$this->close();
+	}
+	return $this->buffer;
 }
 }
 ?>

@@ -18,7 +18,7 @@ class Pdf extends FPDF
     private $jSwap = array("A"=>101, "B"=>100, "C"=>99);       // Caracteres de troca de grupo
 
     public function __construct($orientation = 'P', $unit = 'mm', $format = 'A4')
-    {
+    {   
         //passar parametros para a classe principal
         parent::__construct($orientation, $unit, $format);
         // composição dos caracteres do barcode 128
