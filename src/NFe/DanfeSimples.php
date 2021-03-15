@@ -235,6 +235,7 @@ class DanfeSimples extends Common
             $this->enderEmit  = $this->dom->getElementsByTagName("enderEmit")->item(0);
             $this->enderDest  = $this->dom->getElementsByTagName("enderDest")->item(0);
             $this->ICMSTot    = $this->dom->getElementsByTagName("ICMSTot")->item(0);
+            $this->transp     = $this->dom->getElementsByTagName('transp')->item(0); 
 
             //valida se o XML é uma NF-e modelo 55, pois não pode ser 65 (NFC-e)
             if ($this->pSimpleGetValue($this->ide, "mod") != '55') {
@@ -333,6 +334,35 @@ class DanfeSimples extends Common
 
         $this->pTextBox($w + 3, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
 
+        $vol = $this->transp->getElementsByTagName('vol');
+
+        if ($vol->length){
+
+            $vol = $vol->item(0);
+
+            $x = round($maxW*0.50, 0);
+
+            $texto = 'Qtd. Volumes: ';
+
+            $aFont = array('font'=>$this->fontePadrao, 'size'=> $this->fonteSize, 'style'=>'B');
+
+            $w = $this->pdf->GetStringWidth($texto) + 1;
+
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+
+            $texto = $vol->getElementsByTagName('qVol')->item(0)->nodeValue;
+
+            $x =  $x + $w;
+
+            $aFont = array('font'=>$this->fontePadrao, 'size'=> $this->fonteSize, 'style'=>'');
+
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+
+        }   
+           
+
+        
+        
     }
 
     private function addDest(&$x, &$y){
@@ -626,13 +656,21 @@ class DanfeSimples extends Common
         $dhEmi = ! empty($this->ide->getElementsByTagName("dhEmi")->item(0)->nodeValue) ?
                     $this->ide->getElementsByTagName("dhEmi")->item(0)->nodeValue : '';
 
+        $texto = '';
+
         if (strpos($dhEmi, 'T') != -1){
             $dhEmi = explode('T', $dhEmi);
-            $dhEmi = $dhEmi[0];
+            
+            $texto = $this->pYmd2dmy($dhEmi[0]);
+
+            if (isset($dhEmi[1])){
+
+                $texto .= ' ' . substr($dhEmi[1], 0, 5);
+            }
         }
 
-        $texto = $this->pYmd2dmy($dhEmi);
 
+        
         $this->pTextBox($x + 11, $y1, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
 
         $y1 = $oldY;
