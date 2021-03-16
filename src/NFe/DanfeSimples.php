@@ -559,13 +559,13 @@ class DanfeSimples extends Common
 
         $logoHmm = 12;
 
-        $w = round($maxW*0.60, 0);
+        $w = round($maxW*0.95, 0);
 
         $nImgW = round($w, 0);
 
         $nImgH = $logoHmm;
 
-        $xImg = ($maxW - $nImgW) / 2;
+        $xImg = ($maxW - $nImgW) / 2 + $x;
 
         $yImg = $y + 1;
 
