@@ -1700,14 +1700,26 @@ class Danfe extends Common
         $texto = 'DATA DA SAÍDA/ENTRADA';
         $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
-        $dSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
-                $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
-        if ($dSaiEnt != '') {
+        if (isset($this->customDanfe['dhSaida']) && $this->customDanfe['dhSaida']){
+            
+            $dSaiEnt = $this->customDanfe['dhSaida'];
+
+        } else {
+            
             $dSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
-                    $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
-            $aDsaient = explode('T', $dSaiEnt);
-            $dSaiEnt = $aDsaient[0];
+                $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
+
         }
+       
+
+        if ($dSaiEnt != '') {
+
+            $aDsaient = explode('T', $dSaiEnt);
+
+            $dSaiEnt = $aDsaient[0];
+
+        }
+
         $texto = $this->pYmd2dmy($dSaiEnt);
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
@@ -1760,16 +1772,27 @@ class Danfe extends Common
         $texto = 'HORA DA SAÍDA/ENTRADA';
         $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 1, '');
-        $hSaiEnt = ! empty($this->ide->getElementsByTagName("hSaiEnt")->item(0)->nodeValue) ?
-                $this->ide->getElementsByTagName("hSaiEnt")->item(0)->nodeValue : '';
-        if ($hSaiEnt == '') {
-            $dhSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
-                    $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
-            $tsDhSaiEnt = $this->pConvertTime($dhSaiEnt);
+
+        if (isset($this->customDanfe['dhSaida']) && $this->customDanfe['dhSaida']){
+            
+             $hSaiEnt = $this->customDanfe['dhSaida'];
+
+        } else {
+            
+            $hSaiEnt = ! empty($this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue) ?
+                $this->ide->getElementsByTagName("dhSaiEnt")->item(0)->nodeValue : '';
+
+        }
+        
+        if ($hSaiEnt != '') {
+         
+            $tsDhSaiEnt = $this->pConvertTime($hSaiEnt);
+            
             if ($tsDhSaiEnt != '') {
                 $hSaiEnt = date('H:i:s', $tsDhSaiEnt);
             }
         }
+        
         $texto = $hSaiEnt;
         $aFont = array('font'=>$this->fontePadrao, 'size'=>10, 'style'=>'B');
         $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'B', 'C', 0, '');
