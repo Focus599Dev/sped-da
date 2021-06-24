@@ -350,7 +350,11 @@ class DanfeSimples extends Common
 
             $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
 
-            $texto = $vol->getElementsByTagName('qVol')->item(0)->nodeValue;
+            $texto = '';
+            
+            if ($vol->getElementsByTagName('qVol')->item(0))
+                $texto = $vol->getElementsByTagName('qVol')->item(0)->nodeValue;
+
 
             $x =  $x + $w;
 
