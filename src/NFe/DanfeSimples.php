@@ -28,7 +28,7 @@ class DanfeSimples extends Common
      * Fonte Default
      * @var string
      */
-    protected $fonteSize = 8;
+    protected $fonteSize = 6;
     /**
      * XML NFe
      *
@@ -301,8 +301,6 @@ class DanfeSimples extends Common
 
         $this->codeChaveAcesso($x, $y);
 
-		$this->fonteSize = 9;
-
         $this->addEmitente($x, $y);
         
         $this->addDest($x, $y);
@@ -356,6 +354,7 @@ class DanfeSimples extends Common
             
             if ($vol->getElementsByTagName('qVol')->item(0))
                 $texto = $vol->getElementsByTagName('qVol')->item(0)->nodeValue;
+
 
             $x =  $x + $w;
 
@@ -510,7 +509,7 @@ class DanfeSimples extends Common
 
         }   
 
-        $y1 = $y1 + ($this->fonteSize / 2) ;
+        $y1 = $y1 + ($this->fonteSize / 2) + 2;
 
         $y = $y1;
         
@@ -628,7 +627,7 @@ class DanfeSimples extends Common
 
         $texto = $this->ide->getElementsByTagName('nNF')->item(0)->nodeValue;
 
-        $this->pTextBox($x + 13, $y1, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+        $this->pTextBox($x + 11, $y1, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
 
         $y1 = $y1 + ($this->fonteSize / 2);
 
@@ -644,7 +643,7 @@ class DanfeSimples extends Common
 
             $texto = $this->infNFe->getElementsByTagName('xPed')->item(0)->nodeValue;
 
-            $this->pTextBox($x + 13, $y1, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+            $this->pTextBox($x + 11, $y1, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
 
             $y1 = $y1 + ($this->fonteSize / 2);
 
@@ -676,7 +675,7 @@ class DanfeSimples extends Common
 
 
         
-        $this->pTextBox($x + 15, $y1, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
+        $this->pTextBox($x + 11, $y1, $w, $h, $texto, $aFont, 'T', 'L', 0, '');
 
         $y1 = $oldY;
 
