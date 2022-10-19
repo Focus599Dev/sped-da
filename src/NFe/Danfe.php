@@ -730,7 +730,8 @@ class Danfe extends Common
         $i = 0;
         $numlinhas = 0;
         $hUsado = $hCabecItens;
-        $w2 = round($w*0.28, 0);
+        $widthDesc = 0.30;
+        $w2 = round($w * $widthDesc, 0);
         $hDispo = $hDispo1;
 
         $hasTagMed = false;
@@ -764,14 +765,14 @@ class Danfe extends Common
         }
 
         if($hasTagMed){
-
-            $w2 = round($w*0.25, 0);
-
-        } else {
-
-            $w2 = round($w*0.30, 0);
-
+            $widthDesc -= 0.05;
         }
+
+        if ($hasTagICMSST){
+            $widthDesc -= 0.10;
+        }
+
+        $w2 = round($w * $widthDesc, 0);
 
         $totPag = 1;
         
@@ -810,8 +811,6 @@ class Danfe extends Common
                 $totPag++;
                 $hDispo = $hDispo2;
                 $hUsado = $hCabecItens;
-                // Remove canhoto para páginas secundárias em modo paisagem ('L')
-                $w2 = round($this->wPrint*0.28, 0);
                 $i--; // decrementa para readicionar o item que não coube nessa pagina na outra.
             }
 
