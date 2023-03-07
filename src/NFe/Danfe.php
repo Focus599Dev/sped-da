@@ -1250,7 +1250,11 @@ class Danfe extends Common
             $bairro = $this->pSimpleGetValue($this->enderEmit, "xBairro");
             $CEP = $this->pSimpleGetValue($this->enderEmit, "CEP");
             $CEP = $this->pFormat($CEP, "#####-###");
-            $fone = $this->pFormat($fone, "(##) ####-####");
+            if(strlen($fone) > 10){
+                $fone = $this->pFormat($fone, "(##) #####-####");
+            }else{
+                $fone = $this->pFormat($fone, "(##) ####-####");
+            }
             $mun = $this->pSimpleGetValue($this->enderEmit, "xMun");
             $UF = $this->pSimpleGetValue($this->enderEmit, "UF");
             $texto = $lgr . ", " . $nro . $cpl . " - " . $bairro . "\n"
