@@ -2063,6 +2063,10 @@ class Danfe extends Common
         $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR DO SEGURO", "vSeg");
         $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "DESCONTO", "vDesc");
 
+        if($this->ICMSTot->getElementsByTagName('vIPIDevol')->item(0)->nodeValue != 0.00){
+            $this->ICMSTot->getElementsByTagName('vOutro')->item(0)->nodeValue = $this->ICMSTot->getElementsByTagName('vOutro')->item(0)->nodeValue + $this->ICMSTot->getElementsByTagName('vIPIDevol')->item(0)->nodeValue;
+        }
+        
         $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "OUTRAS DESPESAS", "vOutro");
         
         $x = $this->pImpostoDanfeHelper($x, $y, $w, $h, "VALOR TOTAL IPI", "vIPI");
