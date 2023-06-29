@@ -928,18 +928,7 @@ class Dacte extends Common
         $this->pTextBox($x, $y + $h1 + 8, $w + 0.5, $h1 - 4.5);
         $texto = "Consulta de autenticidade no portal nacional do CT-e, ";
         $texto .= "no site da Sefaz Autorizadora, \r\n ou em http://www.cte.fazenda.gov.br";
-        if ($this->tpEmis == 5 || $this->tpEmis == 7 || $this->tpEmis == 8) {
-            $texto = "";
-            $this->pdf->SetFillColor(0, 0, 0);
-            if ($this->tpEmis == 5) {
-                $chaveContingencia = $this->zGeraChaveAdicCont();
-                $this->pdf->Code128($x + 20, $y1 + 10, $chaveContingencia, $bW * .9, $bH / 2);
-            } else {
-                $chaveContingencia = $this->pSimpleGetValue($this->protCTe, "nProt");
-                $this->pdf->Code128($x + 40, $y1 + 10, $chaveContingencia, $bW * .4, $bH / 2);
-            }
-            //codigo de barras
-        }
+        
         $aFont = array(
             'font' => $this->fontePadrao,
             'size' => 8,
