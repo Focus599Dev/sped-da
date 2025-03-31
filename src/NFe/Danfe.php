@@ -340,6 +340,11 @@ class Danfe extends Common
             error_reporting(0);
             ini_set('display_errors', 'Off');
         }
+
+        $customDanfeDefault = [
+            'InfAdicItem' => 0,
+        ];
+        
         $this->orientacao   = $sOrientacao;
         $this->papel        = $sPapel;
         $this->pdf          = '';
@@ -347,8 +352,8 @@ class Danfe extends Common
         $this->logomarca    = $sPathLogo;
         $this->destino      = $sDestino;
         $this->pdfDir       = $sDirPDF;
-        $this->customDanfe  = $customDanfe;
-
+        $this->customDanfe  =  array_merge($customDanfeDefault, $customDanfe);
+        
         // verifica se foi passa a fonte a ser usada
         if (empty($fonteDANFE)) {
             $this->fontePadrao = 'Times';
