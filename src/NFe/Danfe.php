@@ -340,11 +340,6 @@ class Danfe extends Common
             error_reporting(0);
             ini_set('display_errors', 'Off');
         }
-
-        $customDanfeDefault = [
-            'InfAdicItem' => 0,
-        ];
-        
         $this->orientacao   = $sOrientacao;
         $this->papel        = $sPapel;
         $this->pdf          = '';
@@ -352,8 +347,8 @@ class Danfe extends Common
         $this->logomarca    = $sPathLogo;
         $this->destino      = $sDestino;
         $this->pdfDir       = $sDirPDF;
-        $this->customDanfe  =  array_merge($customDanfeDefault, $customDanfe);
-        
+        $this->customDanfe  = $customDanfe;
+
         // verifica se foi passa a fonte a ser usada
         if (empty($fonteDANFE)) {
             $this->fontePadrao = 'Times';
@@ -2527,7 +2522,7 @@ class Danfe extends Common
         // cabecalho LOOP COM OS DADOS DOS PRODUTOS
         //CÓDIGO PRODUTO
         $texto = "CÓDIGO PRODUTO";
-        $w1 = round($w*0.09, 0);
+        $w1 = round($w*0.06, 0);
         $h = 4;
         $aFont = array('font'=>$this->fontePadrao, 'size'=>6, 'style'=>'');
         $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'C', 'C', 0, '', false);
@@ -2757,7 +2752,9 @@ class Danfe extends Common
                 //corrige o x
                 $x=$oldX;
                 //codigo do produto
-                $texto = $prod->getElementsByTagName("cProd")->item(0)->nodeValue;
+                $cod = $prod->getElementsByTagName("cProd")->item(0)->nodeValue;
+                $texto = ltrim($cod,'0');
+
 
                 $this->pTextBox($x, $y, $w1, $h, $texto, $aFont, 'T', 'C', 0, '');
                 $x += $w1;
