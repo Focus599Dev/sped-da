@@ -324,7 +324,10 @@ class Danfe extends Common
         $sDirPDF = '',
         $fonteDANFE = '',
         $mododebug = 2,
-        $customDanfe = array()
+        $customDanfe = array(),
+        $margSup,
+        $margEsq,
+        $margInf
     ) {
         //set_time_limit(1800);
         if (is_numeric($mododebug)) {
@@ -353,7 +356,10 @@ class Danfe extends Common
         $this->destino      = $sDestino;
         $this->pdfDir       = $sDirPDF;
         $this->customDanfe  =  array_merge($customDanfeDefault, $customDanfe);
-        
+        $this->margSup       = $margSup;
+        $this->margEsq       = $margEsq;
+        $this->margInf       = $margInf;
+
         // verifica se foi passa a fonte a ser usada
         if (empty($fonteDANFE)) {
             $this->fontePadrao = 'Times';
@@ -484,6 +490,9 @@ class Danfe extends Common
         $this->logoAlign = $logoAlign;
         $this->situacao_externa = $situacaoExterna;
         $this->numero_registro_dpec = $depecNumReg;
+        $margSup = $this->margSup;
+        $margEsq = $this->margEsq;
+        $margInf = $this->margInf;
         //instancia a classe pdf
         if ($classPdf) {
             $this->pdf = $classPdf;
