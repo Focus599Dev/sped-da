@@ -951,7 +951,7 @@ class Danfe extends Common
      * @param  string $cdata campo CDATA
      * @return string conteúdo do campo CDATA como string
      */
-    private function pAnfavea($cdata = '')
+    protected function pAnfavea($cdata = '')
     {
         if ($cdata == '') {
             return '';
@@ -2127,7 +2127,7 @@ class Danfe extends Common
                 $texto = "(0) Emitente(CIF)";
                 break;
             case 1:
-                $texto = "Destinatário (FOB)";
+                $texto = "(1) Destinatário (FOB)";
                 break;
             case 2:
                 $texto = "(2) Terceiros";
@@ -3494,7 +3494,7 @@ class Danfe extends Common
      * @param  number $y Posição vertical canto superior
      * @return number Posição vertical final
      */
-    private function pRetiradaDANFE($x = 0, $y = 0)
+    protected function pRetiradaDANFE($x = 0, $y = 0)
     {
 
         $oldX = $x;
@@ -3779,7 +3779,7 @@ class Danfe extends Common
      * @param  number $y Posição vertical canto superior
      * @return number Posição vertical final
      */
-    private function pEntregaDANFE($x = 0, $y = 0)
+    protected function pEntregaDANFE($x = 0, $y = 0)
     {
 
         $oldX = $x;
@@ -4063,7 +4063,7 @@ class Danfe extends Common
      * @param  number $separator ponto decimal
      * @return number $valor
      */
-    private function numberFormatPrecision($number, $precision = 2, $separator = '.')
+    protected function numberFormatPrecision($number, $precision = 2, $separator = '.')
     {
 
         $numberParts = explode($separator, $number);
