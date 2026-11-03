@@ -808,6 +808,7 @@ class DanfeV2 extends Danfe
                 $imposto = $thisItem->getElementsByTagName("imposto")->item(0);
 
                 // Dados básicos do produto
+                $cProd = $this->pSimpleGetValue($prod, "cProd");
                 $xProd = $this->pSimpleGetValue($prod, "xProd");
                 $infAdProd = $this->pSimpleGetValue($thisItem, "infAdProd");
                 $ncm = $this->pSimpleGetValue($prod, "NCM");
@@ -919,7 +920,7 @@ class DanfeV2 extends Danfe
                     $textoLinha3 .= " [cClassTrib " . $cClassTrib . "]";
                 }
 
-                $textoDescTotal = $xProd;
+                $textoDescTotal = $cProd !== '' ? '[COD]: ' . $cProd . ($xProd !== '' ? "\n" . $xProd : '') : $xProd;
                 if ($infAdProd != '') {
                     $textoDescTotal .= "\n" . $infAdProd;
                 }
