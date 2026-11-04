@@ -920,7 +920,10 @@ class DanfeV2 extends Danfe
                     $textoLinha3 .= " [cClassTrib " . $cClassTrib . "]";
                 }
 
-                $textoDescTotal = $cProd !== '' ? '[COD]: ' . $cProd . ($xProd !== '' ? "\n" . $xProd : '') : $xProd;
+                $textoDescTotal = $xProd;
+                if ($cProd !== '') {
+                    $textoDescTotal .= ($textoDescTotal !== '' ? "\n" : '') . '[COD]: ' . $cProd;
+                }
                 if ($infAdProd != '') {
                     $textoDescTotal .= "\n" . $infAdProd;
                 }
