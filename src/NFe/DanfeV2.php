@@ -400,7 +400,133 @@ class DanfeV2 extends Danfe
         $this->pTextBox($x, $y, $wResto, $h, 'TIPO DE REGIME DE APURAÇÃO DO IBS E DA CBS', $aFont, 'T', 'L', 1, '');
         // Campo reservado: não imprimir conteúdo enquanto não houver definição de tag conforme NT 2026.010
 
+        // ####################################################################################
+        // INDICAÇÃO DE NF HOMOLOGAÇÃO, CANCELAMENTO E FALTA DE PROTOCOLO (MARCA D'ÁGUA)
+        // ####################################################################################
+        $this->pMarcaDaguaDANFE($maxW);
+
         return $oldY;
+    }
+
+    /**
+     * Imprime marcas d'água no DANFE (Homologação, Falta de Protocolo, Cancelamento, Denegação, Contingência)
+     *
+     * @param float $maxW Largura máxima imprimível
+     * @return void
+     */
+    protected function pMarcaDaguaDANFE($maxW)
+    {
+        $tpAmbNode = $this->ide ? $this->ide->getElementsByTagName('tpAmb')->item(0) : null;
+        $tpAmb = $tpAmbNode ? $tpAmbNode->nodeValue : '1';
+
+        // Indicar cancelamento
+        if ($this->pNotaCancelada()) {
+            $x = 10;
+            $y = $this->hPrint - 130;
+            $h = 25;
+            $w = $maxW - (2 * $x);
+            $this->pdf->SetTextColor(90, 90, 90);
+            $texto = "NFe CANCELADA";
+            $aFont = array('font' => $this->fontePadrao, 'size' => 48, 'style' => 'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $this->pdf->SetTextColor(0, 0, 0);
+        }
+
+        // Indicar DPEC / EPEC
+        if ($this->pNotaDPEC() || $this->tpEmis == 4) {
+            $x = 10;
+            $y = $this->hPrint - 130;
+            $h = 25;
+            $w = $maxW - (2 * $x);
+            $this->pdf->SetTextColor(200, 200, 200);
+            $texto = "DANFE impresso em contingência -\n" .
+                "EPEC regularmente recebido pela Receita\n" .
+                "Federal do Brasil";
+            $aFont = array('font' => $this->fontePadrao, 'size' => 48, 'style' => 'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $this->pdf->SetTextColor(0, 0, 0);
+        }
+
+        // Indicar Denegada
+        if ($this->pNotaDenegada()) {
+            $x = 10;
+            $y = $this->hPrint - 130;
+            $h = 25;
+            $w = $maxW - (2 * $x);
+            $this->pdf->SetTextColor(90, 90, 90);
+            $texto = "NFe USO DENEGADO";
+            $aFont = array('font' => $this->fontePadrao, 'size' => 48, 'style' => 'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $y += $h;
+            $h = 5;
+            $w = $maxW - (2 * $x);
+            $xMotivo = (isset($this->infProt) && $this->infProt->getElementsByTagName("xMotivo")->item(0))
+                ? $this->infProt->getElementsByTagName("xMotivo")->item(0)->nodeValue
+                : '';
+            $texto = "SEM VALOR FISCAL\n" . $xMotivo;
+            $aFont = array('font' => $this->fontePadrao, 'size' => 48, 'style' => 'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $this->pdf->SetTextColor(0, 0, 0);
+        }
+
+        // Indicar Ambiente de Homologação ou Falta de Protocolo
+        if ($tpAmb != 1) {
+            $x = 10;
+            if ($this->orientacao == 'P') {
+                $y = round($this->hPrint * 2 / 3, 0);
+            } else {
+                $y = round($this->hPrint / 2, 0);
+            }
+            $h = 5;
+            $w = $maxW - (2 * $x);
+            $this->pdf->SetTextColor(90, 90, 90);
+            $texto = "SEM VALOR FISCAL";
+            $aFont = array('font' => $this->fontePadrao, 'size' => 48, 'style' => 'B');
+            $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $aFont = array('font' => $this->fontePadrao, 'size' => 30, 'style' => 'B');
+            $texto = "AMBIENTE DE HOMOLOGAÇÃO";
+            $this->pTextBox($x, $y + 14, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            $this->pdf->SetTextColor(0, 0, 0);
+        } else {
+            $x = 10;
+            if ($this->orientacao == 'P') {
+                $y = round($this->hPrint * 2 / 3, 0);
+            } else {
+                $y = round($this->hPrint / 2, 0);
+            }
+            $h = 5;
+            $w = $maxW - (2 * $x);
+            $this->pdf->SetTextColor(90, 90, 90);
+
+            // Indicar FALTA DO PROTOCOLO se NFe não for em contingência
+            if (($this->tpEmis == 2 || $this->tpEmis == 5) && !$this->pNotaDPEC()) {
+                $texto = "DANFE Emitido em Contingência";
+                $aFont = array('font' => $this->fontePadrao, 'size' => 48, 'style' => 'B');
+                $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+                $aFont = array('font' => $this->fontePadrao, 'size' => 30, 'style' => 'B');
+                $texto = "devido à problemas técnicos";
+                $this->pTextBox($x, $y + 12, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+            } else {
+                $hasProtocolo = (isset($this->nfeProc) && !empty($this->pSimpleGetValue($this->nfeProc, "nProt")))
+                    || (isset($this->infProt) && !empty($this->pSimpleGetValue($this->infProt, "nProt")));
+
+                if (!$hasProtocolo) {
+                    if (!$this->pNotaDPEC()) {
+                        $texto = "SEM VALOR FISCAL";
+                        $aFont = array('font' => $this->fontePadrao, 'size' => 48, 'style' => 'B');
+                        $this->pTextBox($x, $y, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+                    }
+                    $aFont = array('font' => $this->fontePadrao, 'size' => 30, 'style' => 'B');
+                    $texto = "FALTA PROTOCOLO DE APROVAÇÃO DA SEFAZ";
+                    if (!$this->pNotaDPEC()) {
+                        $this->pTextBox($x, $y + 12, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+                    } else {
+                        $this->pTextBox($x, $y + 25, $w, $h, $texto, $aFont, 'C', 'C', 0, '');
+                    }
+                }
+            }
+            $this->pdf->SetTextColor(0, 0, 0);
+        }
     }
 
     /**
