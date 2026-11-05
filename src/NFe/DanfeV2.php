@@ -924,10 +924,12 @@ class DanfeV2 extends Danfe
                 if ($cProd !== '') {
                     $textoDescTotal .= ($textoDescTotal !== '' ? "\n" : '') . '[COD]: ' . $cProd;
                 }
+
+                $textoDescTotal .= "\n" . $textoLinha3;
+
                 if ($infAdProd != '') {
                     $textoDescTotal .= "\n" . $infAdProd;
                 }
-                $textoDescTotal .= "\n" . $textoLinha3;
 
                 // Cálculo da altura da linha: a célula de tributos tem 4 linhas (mínimo ~10mm)
                 $linhasDesc = $this->pGetNumLines($textoDescTotal, $wDescricao, $aFontProd);
