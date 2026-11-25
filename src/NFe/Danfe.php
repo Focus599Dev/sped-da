@@ -777,6 +777,7 @@ class Danfe extends Common
         }
 
         $w2 = round($w * $widthDesc, 0);
+        $wLote = $hasTagMed ? round($w * 0.06, 0) : 0;
 
         $totPag = 1;
 
@@ -784,7 +785,8 @@ class Danfe extends Common
 
         while ($i < $this->det->length) {
 
-            $texto = $this->pDescricaoProduto($this->det->item($i));
+            $thisItem = $this->det->item($i);
+            $texto = $this->pDescricaoProduto($thisItem);
 
             $textoExplode = explode(chr(10), $texto);
 
@@ -796,19 +798,34 @@ class Danfe extends Common
 
                 $numlinhas = $this->pGetNumLines($textoProduto, $w2, $fontProduto);
 
-                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+                $hItem = round(($numlinhas * $this->pdf->FontSize), 2);
 
                 $textoExplode = implode("\n", $textoExplode);
 
                 $numlinhas = $this->pGetNumLines($textoExplode, $w2, $aFontFCI);
 
-                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+                $hItem += round(($numlinhas * $this->pdf->FontSize), 2);
             } else {
 
                 $numlinhas = $this->pGetNumLines($texto, $w2, $fontProduto);
 
-                $hUsado += round(($numlinhas * $this->pdf->FontSize), 2);
+                $hItem = round(($numlinhas * $this->pdf->FontSize), 2);
             }
+
+            if ($hasTagMed && $wLote > 0) {
+                $prodItem = $thisItem->getElementsByTagName("prod")->item(0);
+                $textoLotes = $prodItem ? $this->pExtrairLotes($prodItem) : '';
+                if ($textoLotes !== '') {
+                    $this->pdf->SetFont($fontProduto['font'], $fontProduto['style'], $fontProduto['size']);
+                    $linhasLote = substr_count($textoLotes, "\n") + 1;
+                    $hLote = round(($linhasLote * $this->pdf->FontSize), 2);
+                    if ($hLote > $hItem) {
+                        $hItem = $hLote;
+                    }
+                }
+            }
+
+            $hUsado += $hItem;
 
             if ($hUsado > $hDispo) {
                 $totPag++;
@@ -2478,6 +2495,73 @@ class Danfe extends Common
     }
 
     /**
+     * Extrai todos os números de lote (nLote) de todas as tags <rastro> do produto,
+     * com fallback para <med>/<nLote> quando não houver <rastro>.
+     *
+     * @param \DOMElement|null $prod
+     * @return string Lotes separados por quebra de linha
+     */
+    protected function pExtrairLotes($prod)
+    {
+        if (!$prod) {
+            return '';
+        }
+
+        $lotes = array();
+        $rastros = $prod->getElementsByTagName("rastro");
+        for ($r = 0; $r < $rastros->length; $r++) {
+            $nLoteNodes = $rastros->item($r)->getElementsByTagName("nLote");
+            for ($l = 0; $l < $nLoteNodes->length; $l++) {
+                $valor = trim((string) $nLoteNodes->item($l)->nodeValue);
+                if ($valor !== '') {
+                    $lotes[] = $valor;
+                }
+            }
+        }
+
+        if (empty($lotes)) {
+            $meds = $prod->getElementsByTagName("med");
+            for ($m = 0; $m < $meds->length; $m++) {
+                $nLoteNodes = $meds->item($m)->getElementsByTagName("nLote");
+                for ($l = 0; $l < $nLoteNodes->length; $l++) {
+                    $valor = trim((string) $nLoteNodes->item($l)->nodeValue);
+                    if ($valor !== '') {
+                        $lotes[] = $valor;
+                    }
+                }
+            }
+        }
+
+        return implode("\n", $lotes);
+    }
+
+    /**
+     * Extrai o valor de PMC (vPMC) da tag <med> do produto.
+     *
+     * @param \DOMElement|null $prod
+     * @return string
+     */
+    protected function pExtrairPMC($prod)
+    {
+        if (!$prod) {
+            return '';
+        }
+
+        $meds = $prod->getElementsByTagName("med");
+        for ($m = 0; $m < $meds->length; $m++) {
+            $vPmcNodes = $meds->item($m)->getElementsByTagName("vPMC");
+            if ($vPmcNodes->length > 0) {
+                $valor = trim((string) $vPmcNodes->item(0)->nodeValue);
+                if ($valor !== '') {
+                    return $valor;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
      * itensDANFE
      * Monta o campo de itens da DANFE (retrato e paisagem)
      *
@@ -2716,6 +2800,16 @@ class Danfe extends Common
                     $h2 = $h;
                 }
 
+                $textoLotes = $hasTagMed ? $this->pExtrairLotes($prod) : '';
+                if ($hasTagMed && $textoLotes !== '') {
+                    $this->pdf->SetFont($aFont['font'], $aFont['style'], $aFont['size']);
+                    $linhasLote = substr_count($textoLotes, "\n") + 1;
+                    $hLote = round(($linhasLote * $this->pdf->FontSize), 2);
+                    if ($hLote > $h) {
+                        $h = $hLote;
+                    }
+                }
+
                 $hUsado += $h;
 
                 if ($pag != $totpag) {
@@ -2757,61 +2851,23 @@ class Danfe extends Common
                     $this->pTextBox($x, $y + $h2, $w2, $h, $textoExplode, $aFontFCI, 'T', 'L', 0, '', false);
                 }
 
-                $tagMed = $prod->getElementsByTagName("med");
-
-                $rastro = $prod->getElementsByTagName("rastro");
-
-
-                if ($tagMed->length > 0) {
-                    $hasTagMed = true;
-                    #echo "<textarea>".print_r($tagMed->item(0)->getElementsByTagName("nLote")->item(0)->nodeValue,true)."</textarea>";
-                }
-
-                if ($hasTagMed && ($tagMed->item(0) !== null || $rastro->item(0)  !== null)) {
+                if ($hasTagMed) {
                     //MED LOTE
                     $x += $w2;
-
-                    if ($rastro->item(0)  !== null) {
-                        if ($rastro->item(0)->getElementsByTagName("nLote")->length) {
-
-                            $texto = $rastro->item(0)->getElementsByTagName("nLote")->item(0)->nodeValue;
-
-                            $this->pTextBox($x, $y, $wLote, $h, $texto, $aFont, 'T', 'C', 0, '');
-                        } else {
-
-                            $this->pTextBox($x, $y, $wLote, $h, "          ", $aFont, 'T', 'C', 0, '');
-                        }
+                    if ($textoLotes !== '') {
+                        $this->pTextBox($x, $y, $wLote, $h, $textoLotes, $aFont, 'T', 'C', 0, '');
                     } else {
-
                         $this->pTextBox($x, $y, $wLote, $h, "          ", $aFont, 'T', 'C', 0, '');
                     }
 
                     //MED PMC
                     $x += $wLote;
-
-                    if ($tagMed->item(0) !== null) {
-                        if ($tagMed->item(0)->getElementsByTagName("vPMC")->length) {
-
-                            $texto = $tagMed->item(0)->getElementsByTagName("vPMC")->item(0)->nodeValue;
-
-                            $this->pTextBox($x, $y, $wPMC, $h, $texto, $aFont, 'T', 'C', 0, '');
-                        } else {
-
-                            $this->pTextBox($x, $y, $wPMC, $h, "    ", $aFont, 'T', 'C', 0, '');
-                        }
+                    $textoPMC = $this->pExtrairPMC($prod);
+                    if ($textoPMC !== '') {
+                        $this->pTextBox($x, $y, $wPMC, $h, $textoPMC, $aFont, 'T', 'C', 0, '');
                     } else {
                         $this->pTextBox($x, $y, $wPMC, $h, "    ", $aFont, 'T', 'C', 0, '');
                     }
-                } else if ($hasTagMed) {
-                    //MED LOTE
-                    $x += $w2;
-                    $texto = "          ";
-                    $this->pTextBox($x, $y, $wLote, $h, $texto, $aFont, 'T', 'C', 0, '');
-
-                    //MED PMC
-                    $x += $wLote;
-                    $texto = "    ";
-                    $this->pTextBox($x, $y, $wPMC, $h, $texto, $aFont, 'T', 'C', 0, '');
                 } else {
                     $wPMC = $w2;
                 }

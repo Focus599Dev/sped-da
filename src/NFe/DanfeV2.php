@@ -863,22 +863,35 @@ class DanfeV2 extends Danfe
         // #####################################################################
         // LARGURAS DAS COLUNAS (NT 2026.010)
         // #####################################################################
-        // 1. Descrição do Produto / Serviço (~29%)
-        // 2. CST / CFOP (~8%)
-        // 3. QTD / UN (~10%)
-        // 4. VLR UNIT (~9%)
-        // 5. VLR TOTAL (~9%)
-        // 6. BASES DE CÁLCULO (~14%)
-        // 7. ALÍQUOTAS (~10%)
-        // 8. VALOR DOS TRIBUTOS (~11%)
-        $wDescricao = round($w * 0.29, 0);
-        $wCstCfop   = round($w * 0.08, 0);
-        $wQtdUn     = round($w * 0.10, 0);
-        $wVlrUnit   = round($w * 0.09, 0);
-        $wVlrTotal  = round($w * 0.09, 0);
-        $wBasesCalc = round($w * 0.14, 0);
-        $wAliquotas = round($w * 0.10, 0);
-        $wVlrTrib   = $w - ($wDescricao + $wCstCfop + $wQtdUn + $wVlrUnit + $wVlrTotal + $wBasesCalc + $wAliquotas);
+        // Sem LOTE/PMC:
+        // 1. Descrição (~29%), 2. CST/CFOP (~8%), 3. QTD/UN (~10%), 4. VLR UNIT (~9%),
+        // 5. VLR TOTAL (~9%), 6. BASES DE CÁLCULO (~14%), 7. ALÍQUOTAS (~10%), 8. VLR TRIB (~11%)
+        // Com LOTE/PMC (indústria farmacêutica):
+        // Descrição (~22%), LOTE (~6%), PMC (~4%), CST/CFOP (~8%), QTD/UN (~9%),
+        // VLR UNIT (~8%), VLR TOTAL (~8%), BASES (~14%), ALÍQUOTAS (~10%), VLR TRIB (~11%)
+        if ($hasTagMed) {
+            $wDescricao = round($w * 0.22, 0);
+            $wLote      = round($w * 0.06, 0);
+            $wPMC       = round($w * 0.04, 0);
+            $wCstCfop   = round($w * 0.08, 0);
+            $wQtdUn     = round($w * 0.09, 0);
+            $wVlrUnit   = round($w * 0.08, 0);
+            $wVlrTotal  = round($w * 0.08, 0);
+            $wBasesCalc = round($w * 0.14, 0);
+            $wAliquotas = round($w * 0.10, 0);
+            $wVlrTrib   = $w - ($wDescricao + $wLote + $wPMC + $wCstCfop + $wQtdUn + $wVlrUnit + $wVlrTotal + $wBasesCalc + $wAliquotas);
+        } else {
+            $wDescricao = round($w * 0.29, 0);
+            $wLote      = 0;
+            $wPMC       = 0;
+            $wCstCfop   = round($w * 0.08, 0);
+            $wQtdUn     = round($w * 0.10, 0);
+            $wVlrUnit   = round($w * 0.09, 0);
+            $wVlrTotal  = round($w * 0.09, 0);
+            $wBasesCalc = round($w * 0.14, 0);
+            $wAliquotas = round($w * 0.10, 0);
+            $wVlrTrib   = $w - ($wDescricao + $wCstCfop + $wQtdUn + $wVlrUnit + $wVlrTotal + $wBasesCalc + $wAliquotas);
+        }
 
         $hCab = 5;
         $aFontCab = array('font' => $this->fontePadrao, 'size' => 5.5, 'style' => 'B');
@@ -888,7 +901,20 @@ class DanfeV2 extends Danfe
         $this->pTextBox($colX, $y, $wDescricao, $hCab, "DESCRIÇÃO DO PRODUTO / SERVIÇO", $aFontCab, 'C', 'C', 0, '', false);
         $this->pdf->Line($colX + $wDescricao, $y, $colX + $wDescricao, $y + $hmax);
 
-        $colX += $wDescricao;
+        if ($hasTagMed) {
+            $colX += $wDescricao;
+            $this->pTextBox($colX, $y, $wLote, $hCab, "LOTE", $aFontCab, 'C', 'C', 0, '', false);
+            $this->pdf->Line($colX + $wLote, $y, $colX + $wLote, $y + $hmax);
+
+            $colX += $wLote;
+            $this->pTextBox($colX, $y, $wPMC, $hCab, "PMC", $aFontCab, 'C', 'C', 0, '', false);
+            $this->pdf->Line($colX + $wPMC, $y, $colX + $wPMC, $y + $hmax);
+
+            $colX += $wPMC;
+        } else {
+            $colX += $wDescricao;
+        }
+
         $this->pTextBox($colX, $y, $wCstCfop, $hCab, "CST / CFOP", $aFontCab, 'C', 'C', 0, '', false);
         $this->pdf->Line($colX + $wCstCfop, $y, $colX + $wCstCfop, $y + $hmax);
 
@@ -1057,9 +1083,18 @@ class DanfeV2 extends Danfe
                     $textoDescTotal .= "\n" . $infAdProd;
                 }
 
-                // Cálculo da altura da linha: a célula de tributos tem 4 linhas (mínimo ~10mm)
+                // Extração de LOTE e PMC quando houver tags farmacêuticas (med/rastro)
+                $textoLotes = $hasTagMed ? $this->pExtrairLotes($prod) : '';
+                $textoPMC   = $hasTagMed ? $this->pExtrairPMC($prod) : '';
+
+                // Cálculo da altura da linha: a célula de tributos tem 4 linhas (mínimo ~10.5mm)
                 $linhasDesc = $this->pGetNumLines($textoDescTotal, $wDescricao, $aFontProd);
-                $hItem = max(round($linhasDesc * 2.5, 2), 10.5);
+                $hLote = 0;
+                if ($hasTagMed && $textoLotes !== '') {
+                    $linhasLote = substr_count($textoLotes, "\n") + 1;
+                    $hLote = round($linhasLote * 2.3, 2);
+                }
+                $hItem = max(round($linhasDesc * 2.5, 2), $hLote, 10.5);
 
                 $hUsado += $hItem;
 
@@ -1083,8 +1118,21 @@ class DanfeV2 extends Danfe
                 $colX = $oldX;
                 $this->pTextBox($colX, $y, $wDescricao, $hItem, $textoDescTotal, $aFontProd, 'T', 'L', 0, '', false);
 
+                if ($hasTagMed) {
+                    // Coluna LOTE (suporta múltiplos <rastro>/<nLote>)
+                    $colX += $wDescricao;
+                    $this->pTextBox($colX, $y, $wLote, $hItem, $textoLotes, $aFontSub, 'T', 'C', 0, '');
+
+                    // Coluna PMC
+                    $colX += $wLote;
+                    $this->pTextBox($colX, $y, $wPMC, $hItem, $textoPMC, $aFontSub, 'T', 'C', 0, '');
+
+                    $colX += $wPMC;
+                } else {
+                    $colX += $wDescricao;
+                }
+
                 // Coluna 2: CST / CFOP (2 linhas)
-                $colX += $wDescricao;
                 $textoCstCfop = "CST....." . str_pad($cstExib, 3, "0", STR_PAD_LEFT) . "\n"
                     . "CFOP.." . str_pad($cfop, 4, "0", STR_PAD_LEFT);
                 $this->pTextBox($colX, $y, $wCstCfop, $hItem, $textoCstCfop, $aFontSub, 'T', 'C', 0, '', false);
@@ -1416,6 +1464,20 @@ class DanfeV2 extends Danfe
 
         $hDispo2 = $this->hPrint - 10 - $hcabecalho - 4;
 
+        // Verificar se algum item possui tags farmacêuticas (<med> ou <rastro>)
+        $hasTagMed = false;
+        for ($ind = 0; $ind < $this->det->length; $ind++) {
+            $prodItem = $this->det->item($ind)->getElementsByTagName("prod")->item(0);
+            if ($prodItem) {
+                $tagMed = $prodItem->getElementsByTagName("med");
+                $tagRastro = $prodItem->getElementsByTagName("rastro");
+                if ($tagMed->length > 0 || $tagRastro->length > 0) {
+                    $hasTagMed = true;
+                    break;
+                }
+            }
+        }
+
         // Estimar paginação baseado na quantidade de itens (mínimo 10.5mm por item na NT 2026.010)
         $hItemEstimado = 11.0;
         $totItens = $this->det->length;
@@ -1467,7 +1529,7 @@ class DanfeV2 extends Danfe
         $y = $this->pTransporteDANFE($x, $y + 1);
 
         $nInicial = 0;
-        $y = $this->pItensDANFE($x, $y + 1, $nInicial, $hDispo1, $pag, $totPag, $hCabecItens);
+        $y = $this->pItensDANFE($x, $y + 1, $nInicial, $hDispo1, $pag, $totPag, $hCabecItens, $hasTagMed);
 
         if (!$is_new_page) {
             $y = $this->pDadosAdicionaisDANFE($x, $y, $hdadosadic);
@@ -1492,7 +1554,7 @@ class DanfeV2 extends Danfe
             $y = $yInic;
 
             $y = $this->pCabecalhoDANFE($x, $y, $n, $totPag);
-            $y = $this->pItensDANFE($x, $y, $nInicial, $hDispo2, $n, $totPag, $hCabecItens);
+            $y = $this->pItensDANFE($x, $y, $nInicial, $hDispo2, $n, $totPag, $hCabecItens, $hasTagMed);
 
             if ($this->orientacao == 'P') {
                 $this->pRodape($xInic, $y + 4);
