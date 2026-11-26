@@ -1079,6 +1079,11 @@ class DanfeV2 extends Danfe
 
                 $textoDescTotal .= "\n" . $textoLinha3;
 
+                $infoMedRastro = $this->pExtrairInfoMedRastro($prod);
+                if ($infoMedRastro !== '') {
+                    $textoDescTotal .= "\n" . $infoMedRastro;
+                }
+
                 if ($infAdProd != '') {
                     $textoDescTotal .= "\n" . $infAdProd;
                 }

@@ -2456,21 +2456,9 @@ class Danfe extends Common
             $infAdProd = trim($infAdProd);
             $infAdProd .= ' ';
         }
-        $medTxt = '';
-        $med = $prod->getElementsByTagName("med");
-        if (isset($med)) {
-            $i = 0;
-            while ($i < $med->length) {
-                $medTxt .= $this->pSimpleGetValue($med->item($i), 'nLote', ' Lote: ');
-                $medTxt .= $this->pSimpleGetValue($med->item($i), 'qLote', ' Quant: ');
-                $medTxt .= $this->pSimpleGetDate($med->item($i), 'dFab', ' Fab: ');
-                $medTxt .= $this->pSimpleGetDate($med->item($i), 'dVal', ' Val: ');
-                $medTxt .= $this->pSimpleGetValue($med->item($i), 'vPMC', ' PMC: ');
-                $i++;
-            }
-            if ($medTxt != '') {
-                $medTxt .= ' ';
-            }
+        $medTxt = $this->pExtrairInfoMedRastro($prod);
+        if ($medTxt !== '') {
+            $medTxt .= ' ';
         }
 
         $texto = $prod->getElementsByTagName("xProd")->item(0)->nodeValue;
@@ -2492,6 +2480,62 @@ class Danfe extends Common
         }
 
         return $texto;
+    }
+
+    /**
+     * Monta o texto resumido de PMC e Lotes/Quantidades para as informações adicionais do item.
+     * Exemplo: "PMC: 26.84 Lote: 0000128519 - Qtd: 5094 / Lote: 0000128520 - Qtd: 1516"
+     *
+     * @param \DOMElement|null $prod
+     * @return string
+     */
+    protected function pExtrairInfoMedRastro($prod)
+    {
+        if (!$prod) {
+            return '';
+        }
+
+        $partes = array();
+
+        $pmc = $this->pExtrairPMC($prod);
+        if ($pmc !== '') {
+            $partes[] = 'PMC: ' . $pmc;
+        }
+
+        $lotesInfo = array();
+        $rastros = $prod->getElementsByTagName("rastro");
+        for ($r = 0; $r < $rastros->length; $r++) {
+            $rastroNode = $rastros->item($r);
+            $nLote = trim((string) $this->pSimpleGetValue($rastroNode, 'nLote'));
+            $qLote = trim((string) $this->pSimpleGetValue($rastroNode, 'qLote'));
+            if ($qLote !== '' && strpos($qLote, '.') !== false) {
+                $qLote = rtrim(rtrim($qLote, '0'), '.');
+            }
+            if ($nLote !== '') {
+                $lotesInfo[] = 'Lote: ' . $nLote . ($qLote !== '' ? ' - Qtd: ' . $qLote : '');
+            }
+        }
+
+        if (empty($lotesInfo)) {
+            $meds = $prod->getElementsByTagName("med");
+            for ($m = 0; $m < $meds->length; $m++) {
+                $medNode = $meds->item($m);
+                $nLote = trim((string) $this->pSimpleGetValue($medNode, 'nLote'));
+                $qLote = trim((string) $this->pSimpleGetValue($medNode, 'qLote'));
+                if ($qLote !== '' && strpos($qLote, '.') !== false) {
+                    $qLote = rtrim(rtrim($qLote, '0'), '.');
+                }
+                if ($nLote !== '') {
+                    $lotesInfo[] = 'Lote: ' . $nLote . ($qLote !== '' ? ' - Qtd: ' . $qLote : '');
+                }
+            }
+        }
+
+        if (!empty($lotesInfo)) {
+            $partes[] = implode(' / ', $lotesInfo);
+        }
+
+        return implode(' ', $partes);
     }
 
     /**
