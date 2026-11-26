@@ -596,18 +596,7 @@ class DanfeV2 extends Danfe
         $x = $this->pImpostoDanfeHelper($x, $y, $w5, $h, "VALOR DO IPI", "vIPI");
 
         // Linha 2 (Facultativa/Condicional): FCP e DIFAL
-        $temFCPouDifal = false;
-        if ($this->ICMSTot) {
-            $vFCP = (float)$this->pSimpleGetValue($this->ICMSTot, 'vFCP');
-            $vFCPST = (float)$this->pSimpleGetValue($this->ICMSTot, 'vFCPST');
-            $vICMSUFDest = (float)$this->pSimpleGetValue($this->ICMSTot, 'vICMSUFDest');
-            $vFCPUFDest = (float)$this->pSimpleGetValue($this->ICMSTot, 'vFCPUFDest');
-            if ($vFCP > 0 || $vFCPST > 0 || $vICMSUFDest > 0 || $vFCPUFDest > 0) {
-                $temFCPouDifal = true;
-            }
-        }
-
-        if ($temFCPouDifal) {
+        if ($this->pTemFcpOuDifal()) {
             $y += $h;
             $x = $x_inicial;
             $w4 = $maxW / 4;
@@ -615,6 +604,17 @@ class DanfeV2 extends Danfe
             $x = $this->pImpostoDanfeHelper($x, $y, $w4, $h, "VALOR DO FCP RETIDO POR ST", "vFCPST");
             $x = $this->pImpostoDanfeHelper($x, $y, $w4, $h, "VALOR DO DIFAL NA UF DE DESTINO", "vICMSUFDest");
             $x = $this->pImpostoDanfeHelper($x, $y, $w4, $h, "VALOR DO FCP NA UF DE DESTINO", "vFCPUFDest");
+        }
+
+        // Linha 3 (Facultativa/Condicional): ICMS Monofásico (NT 2026.010)
+        if ($this->pTemIcmsMonofasico()) {
+            $y += $h;
+            $x = $x_inicial;
+            $w4 = $maxW / 4;
+            $x = $this->pImpostoDanfeHelper($x, $y, $w4, $h, "BC DO ICMS MONOFÁSICO", "qBCMono");
+            $x = $this->pImpostoDanfeHelper($x, $y, $w4, $h, "VALOR DO ICMS MONOFÁSICO", "vICMSMono");
+            $x = $this->pImpostoDanfeHelper($x, $y, $w4, $h, "BC DO ICMS MONOFÁSICO POR RETENÇÃO", "qBCMonoReten");
+            $x = $this->pImpostoDanfeHelper($x, $y, $w4, $h, "VALOR DO ICMS MONOFÁSICO POR RETENÇÃO", "vICMSMonoReten");
         }
 
         // #####################################################################
@@ -701,6 +701,68 @@ class DanfeV2 extends Danfe
         }
 
         return ($y + $h);
+    }
+
+    /**
+     * Verifica se o XML possui valores de FCP ou DIFAL no ICMSTot.
+     *
+     * @return bool
+     */
+    protected function pTemFcpOuDifal()
+    {
+        if (!$this->ICMSTot) {
+            return false;
+        }
+
+        $vFCP = (float)$this->pSimpleGetValue($this->ICMSTot, 'vFCP');
+        $vFCPST = (float)$this->pSimpleGetValue($this->ICMSTot, 'vFCPST');
+        $vICMSUFDest = (float)$this->pSimpleGetValue($this->ICMSTot, 'vICMSUFDest');
+        $vFCPUFDest = (float)$this->pSimpleGetValue($this->ICMSTot, 'vFCPUFDest');
+
+        return ($vFCP > 0 || $vFCPST > 0 || $vICMSUFDest > 0 || $vFCPUFDest > 0);
+    }
+
+    /**
+     * Verifica se o XML possui informações de ICMS Monofásico no ICMSTot (NT 2026.010).
+     *
+     * @return bool
+     */
+    protected function pTemIcmsMonofasico()
+    {
+        if (!$this->ICMSTot) {
+            return false;
+        }
+
+        $qBCMono = trim((string)$this->pSimpleGetValue($this->ICMSTot, 'qBCMono'));
+        $vICMSMono = trim((string)$this->pSimpleGetValue($this->ICMSTot, 'vICMSMono'));
+        $qBCMonoReten = trim((string)$this->pSimpleGetValue($this->ICMSTot, 'qBCMonoReten'));
+        $vICMSMonoReten = trim((string)$this->pSimpleGetValue($this->ICMSTot, 'vICMSMonoReten'));
+
+        return ($qBCMono !== '' || $vICMSMono !== '' || $qBCMonoReten !== '' || $vICMSMonoReten !== '');
+    }
+
+    /**
+     * Verifica se o XML possui informações de IBS/CBS Monofásico no IBSCBSTot (NT 2026.010).
+     *
+     * @return bool
+     */
+    protected function pTemIbsCbsMonofasico()
+    {
+        if (!$this->IBSCBSTot) {
+            return false;
+        }
+
+        $gMono = $this->IBSCBSTot->getElementsByTagName("gMono")->item(0);
+        if (!$gMono) {
+            return false;
+        }
+
+        $vIBSMonoVal = trim((string)$this->pSimpleGetValue($gMono, "vIBSMono"));
+        $vCBSMonoVal = trim((string)$this->pSimpleGetValue($gMono, "vCBSMono"));
+        $vIBSMonoRetenVal = trim((string)$this->pSimpleGetValue($gMono, "vIBSMonoReten"));
+        $vCBSMonoRetenVal = trim((string)$this->pSimpleGetValue($gMono, "vCBSMonoReten"));
+
+        return ($vIBSMonoVal !== '' || $vCBSMonoVal !== '' || $vIBSMonoRetenVal !== '' || $vCBSMonoRetenVal !== '');
     }
 
     /**
@@ -1444,6 +1506,15 @@ class DanfeV2 extends Danfe
         $hdestinatario = 25;
         $hduplicatas = 12;
         $himposto = 35; // Total Produtos + Total ICMS/IPI + Total IBS/CBS/IS
+        if ($this->pTemFcpOuDifal()) {
+            $himposto += 7;
+        }
+        if ($this->pTemIcmsMonofasico()) {
+            $himposto += 7;
+        }
+        if ($this->pTemIbsCbsMonofasico()) {
+            $himposto += 7;
+        }
         $htransporte = 25;
         $hissqn = 11;
         $hfooter = $hdadosadic;
